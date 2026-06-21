@@ -1,0 +1,3 @@
+# Specification
+
+Định nghĩa Input/Output & Acceptance Criteria...
