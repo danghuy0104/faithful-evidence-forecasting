@@ -15,8 +15,8 @@
 * [x] Viết `proposal.md` (bối cảnh, động lực, mục tiêu, vai trò AI agent trong SDLC)
 * [x] Viết `spec.md` (input/output, chức năng chính, acceptance criteria Given/When/Then)
 * [x] Viết `tasks.md` (file này)
-* [ ] Viết `design.md` (kiến trúc pipeline, data schema chi tiết, lựa chọn công nghệ)
-* [ ] Viết `metric_definition.md` (định nghĩa công thức Evidence Support, Temporal Validity, Confidence Drop)
+* [x] Viết `design.md` (kiến trúc pipeline, data schema chi tiết, lựa chọn công nghệ)
+* [x] Viết `metric_definition.md` (định nghĩa công thức Evidence Support, Temporal Validity, Confidence Drop)
 
 ## 2. Dataset mẫu (A2) — Phụ trách: SV2
 * [ ] Tạo file `data/sample_news_price.csv` với tối thiểu 30 dòng
