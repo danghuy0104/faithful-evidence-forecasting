@@ -1,3 +1,1 @@
 # Project Tasks
-
-Danh sách đầu việc...

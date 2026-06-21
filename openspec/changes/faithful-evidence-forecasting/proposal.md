@@ -1,3 +1,1 @@
 # Project Proposal
-
-Bài toán & Mục tiêu...

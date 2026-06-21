@@ -1,3 +1,1 @@
 # System Design
-
-Kiến trúc pipeline...
