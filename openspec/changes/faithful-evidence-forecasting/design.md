@@ -8,6 +8,15 @@ Faithful Evidence-Centric Financial News Forecasting
 
 ### Mục tiêu thiết kế
 
+Thiết kế một hệ thống dự báo xu hướng cổ phiếu từ tin tức tài chính theo hướng Explainable AI và Faithful AI.
+
+Hệ thống không chỉ đưa ra prediction mà còn:
+
+- Hiển thị evidence được sử dụng.
+- Kiểm tra temporal validity.
+- Đánh giá mức độ ảnh hưởng thực sự của evidence đến prediction.
+- Cung cấp visualization để hỗ trợ kiểm chứng.
+
 ## 2. Kiến trúc tổng thể
 
 ### a. Kiến trúc Pipeline
@@ -130,28 +139,30 @@ Dashboard->>User: prediction, evidence, metrics
 
 ## 3. Cấu trúc thư mục mã nguồn
 
+```text
 project_root/
-  data/
-    sample_news_price.csv
-  src/
-    retriever.py
-    evidence_extractor.py
-    evidence_selector.py
-    forecast_model.py
-    faithfulness_metrics.py
-    dashboard.py
-  tests/
-    test_temporal_retriever.py
-    test_metrics.py
-  outputs/
-    prediction_results.csv
-    faithfulness_results.csv
-    figures/
-      prediction_distribution.png
-      confidence_drop.png
-      temporal_leakage_warning.png
-      faithfulness_radar.png
-  openspec/
+├── data/
+│   └── sample_news_price.csv
+├── src/
+│   ├── retriever.py
+│   ├── evidence_extractor.py
+│   ├── evidence_selector.py
+│   ├── forecast_model.py
+│   ├── faithfulness_metrics.py
+│   └── dashboard.py
+├── tests/
+│   ├── test_temporal_retriever.py
+│   └── test_metrics.py
+├── outputs/
+│   ├── prediction_results.csv
+│   ├── faithfulness_results.csv
+│   └── figures/
+│       ├── prediction_distribution.png
+│       ├── confidence_drop.png
+│       ├── temporal_leakage_warning.png
+│       └── faithfulness_radar.png
+└── openspec/
+```
 
 ## 4. Thiết kế dữ liệu
 
@@ -177,7 +188,7 @@ project_root/
 }
 ```
 
-### c. Dataset Schema
+### b. Dataset Schema
 
 | Field | Type | Description |
 |--------|--------|--------|
@@ -225,22 +236,24 @@ Loại bỏ dữ liệu tương lai.
 
 #### Input
 
-forecast_time
-news_list
+- forecast_time
+- news_list
 
 #### Output
 
-valid_news
-invalid_future_news
+- valid_news
+- invalid_future_news
 
 #### Thuật toán
 
+```text
 For each news:
 
   If news_time <= forecast_time: 
     valid_news
   Else:
     invalid_future_news
+```
 
 ### b. Evidence Extractor
 
@@ -250,13 +263,13 @@ Trích xuất evidence từ nội dung tin tức.
 
 #### Input
 
-news_text
+- news_text
 
 #### Output
 
-evidence_text
-polarity
-expected_direction
+- evidence_text
+- polarity
+- expected_direction
 
 #### Phiên bản cơ bản
 
@@ -279,8 +292,8 @@ Chọn evidence quan trọng nhất.
 
 #### Output
 
-pro_evidence
-counterevidence
+- pro_evidence
+- counterevidence
 
 #### Chiến lược:
 
@@ -298,37 +311,37 @@ Rule-based.
 
 #### Công thức
 
-score = positive_count - negative_count
+`score` = `positive_count` - `negative_count`
 
-positive_count = số evidence positive
+`positive_count` = số `evidence positive`
 
-negative_count = số evidence negative
+`negative_count` = số `evidence negative`
 
-confidence = |score| / total_evidence
+`confidence` = `|score|` / `total_evidence`
 
 Quy tắc:
 
-- score > 0 -> UP
-- score < 0 -> DOWN
-- score = 0 -> HOLD
+- `score` > `0` -> `UP`
+- `score` < `0` -> `DOWN`
+- `score` = `0` -> `HOLD`
 
 #### Confidence
 
-confidence = abs(score) / total_evidence
+`confidence` = `abs(score)` / `total_evidence`
 
 ### e. Faithfulness Evaluator
 
 #### Evidence Support
 
-ES = supporting_evidence / total_evidence
+`ES` = `supporting_evidence` / `total_evidence`
 
 #### Temporal Validity
 
-TV = valid_evidence / total_evidence
+`TV` = `valid_evidence` / `total_evidence`
 
 #### Confidence Drop
 
-CD = original_confidence - confidence_without_evidence
+`CD` = `original_confidence` - `confidence_without_evidence`
 
 ## 6. Thiết kế Error Handling
 
