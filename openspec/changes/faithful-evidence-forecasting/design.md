@@ -1,109 +1,576 @@
-# Design: Faithful Evidence-Centric Financial News Forecasting
+# Design Document
 
-## 1. Kiến trúc tổng quan (Pipeline)
+## 1. Tổng quan thiết kế
 
-#Hệ thống được tổ chức thành một pipeline tuần tự gồm 6 khối xử lý, dữ liệu đi qua từng khối theo đúng thứ tự dưới đây:
-#News -> Price Data -> Bộ lọc thời gian -> Bộ trích xuất evidence -> Bộ chọn evidence -> Mô hình dự báo -> Bộ đánh giá độ tin cậy -> Dashboard trực quan hóa
+### Tên hệ thống
 
-| Khối | Nhiệm vụ | Ví dụ đầu ra |
-|---|
-| Temporal Retriever (Bộ lọc thời gian) | Chỉ giữ lại tin tức xuất hiện trước thời điểm dự báo | valid_news, invalid_future_news |
-| Evidence Extractor (Bộ trích xuất evidence) | Trích xuất đoạn bằng chứng nhỏ và gán hướng tác động từ mỗi tin tức | "weak iPhone sales" được gán negative, hướng DOWN |
-| Evidence Selector (Bộ chọn evidence) | Phân loại evidence thành pro (ủng hộ) và counterevidence (trái chiều) | pro: "earnings beat"; counter: "weak guidance" |
-| Forecast Model (Mô hình dự báo) | Tổng hợp evidence để đưa ra dự báo UP/DOWN/HOLD | DOWN, confidence = 0.72 |
-| Faithfulness Evaluator (Bộ đánh giá độ tin cậy) | Tính các chỉ số evidence support, temporal validity, confidence drop | confidence_drop = 0.21 |
-| Dashboard | Hiển thị prediction, evidence, cảnh báo và biểu đồ cho người dùng | bảng dữ liệu, biểu đồ cột, radar chart |
+Faithful Evidence-Centric Financial News Forecasting
 
-Lưu ý: khối Evidence Selector hiện chưa được mô tả chi tiết trong `spec.md` ở phiên bản MVP (Phần A), vì yêu cầu cơ bản A4 chỉ cần trích xuất evidence, chưa bắt buộc phân tách pro/counter. Khối này sẽ được hiện thực đầy đủ khi nhóm triển khai phần nâng cao B2 (Counterevidence Coverage). Ở MVP, có thể tạm coi Evidence Selector là một bước rút gọn: chọn toàn bộ evidence đã trích xuất làm input cho Forecast Model.
+### Mục tiêu thiết kế
 
-## 2. Chi tiết từng thành phần
+## 2. Kiến trúc tổng thể
 
-### 2.1. Temporal Retriever
-- Input: danh sách tin tức (mỗi tin có `news_time`), và `forecast_time` của lượt dự báo.
-- Output: hai danh sách `valid_news` (tin có `news_time` < `forecast_time`) và `invalid_future_news` (tin có `news_time` >= `forecast_time`).
-- Thuật toán MVP: so sánh trực tiếp 2 giá trị thời gian (dùng kiểu dữ liệu datetime), không cần model.
-- File code dự kiến: `src/retriever.py`.
+### a. Kiến trúc Pipeline
 
-### 2.2. Evidence Extractor
-- Input: `valid_news` từ bước trên.
-- Output: danh sách evidence, mỗi evidence gồm `evidence_text`, `polarity` (positive/negative/neutral), `expected_direction` (UP/DOWN/HOLD).
-- Thuật toán MVP: rule-based theo từ khóa (ví dụ: tập từ khóa tiêu cực như "miss", "weak", "decline"; tập từ khóa tích cực như "beat", "launch", "growth"). Nếu không khớp từ khóa nào -> polarity = neutral.
-- File code dự kiến: `src/evidence_extractor.py`.
+```mermaid
+flowchart LR
+  A[News Dataset] --> B[Temporal Retriever]
+    B --> C[Evidence Extractor]
+    C --> D[Evidence Selector]
+    D --> E[Forecast Model]
+    E --> F[Faithfulness Eval]
+    F --> G[Dashboard]
+```
+### b. Luồng xử lý
 
-### 2.3. Evidence Selector
-- Input: danh sách evidence từ bước trên.
-- Output: hai nhóm `pro_evidence` (cùng hướng với prediction sau cùng) và `counterevidence` (ngược hướng).
-- Thuật toán MVP: chưa tách pro/counter, dùng toàn bộ evidence. Thuật toán nâng cao (B2): so sánh `expected_direction` của từng evidence với prediction cuối cùng để phân loại.
-- File code dự kiến: gộp chung vào `src/forecast_model.py` ở MVP, tách riêng `src/evidence_selector.py` nếu làm phần nâng cao.
+#### Bước 1: Nhận dữ liệu
 
-### 2.4. Forecast Model
-- Input: danh sách evidence (đã chọn ở bước trên).
-- Output: `prediction` (UP/DOWN/HOLD) và `confidence` (0 đến 1).
-- Thuật toán MVP: rule-based đếm số evidence positive và negative theo công thức:
-  - Nếu (số lượng positive - số lượng negative) > 0 -> prediction = UP
-  - Nếu (số lượng positive - số lượng negative) < 0 -> prediction = DOWN
-  - Nếu bằng 0 -> prediction = HOLD
-  - Confidence được tính theo tỉ lệ giữa số evidence cùng hướng với prediction trên tổng số evidence.
-- File code dự kiến: `src/forecast_model.py`.
+Hệ thống nhận:
 
-### 2.5. Faithfulness Evaluator
-- Input: prediction gốc, danh sách evidence đã cite, và khả năng gọi lại Forecast Model.
-- Output: 3 chỉ số `evidence_support`, `temporal_validity`, `confidence_drop`.
-- Thuật toán MVP:
-  - `temporal_validity`: tỉ lệ evidence có `news_time` hợp lệ trên tổng số evidence được cite.
-  - `evidence_support`: tỉ lệ evidence có `expected_direction` khớp với prediction cuối cùng.
-  - `confidence_drop`: chạy lại Forecast Model sau khi loại bỏ evidence được cite khỏi input, lấy confidence gốc trừ confidence mới.
-- File code dự kiến: `src/faithfulness_metrics.py`.
+- ticker
+- forecast_time
+- news
+- price_features
 
-### 2.6. Dashboard
-- Input: toàn bộ output của các bước trên (prediction, evidence, faithfulness scores) cho một hoặc nhiều mẫu.
-- Output: tối thiểu 4 bảng/hình theo yêu cầu A7: prediction distribution, evidence table, confidence drop chart, temporal leakage warning.
-- Công nghệ MVP: Jupyter Notebook (hiển thị bảng và biểu đồ tĩnh bằng matplotlib/pandas). Có thể nâng cấp lên Streamlit nếu nhóm còn thời gian, để có giao diện tương tác (chọn ticker, bấm nút "remove cited evidence" như kịch bản demo).
-- File code dự kiến: `src/dashboard.py`.
+#### Bước 2: Temporal Retrieval
 
-## 3. Cấu trúc dữ liệu (Data Schema)
+Lọc bỏ các tin có:
 
-Cấu trúc input/output đầy đủ (tên trường, ý nghĩa, ví dụ) đã được định nghĩa chi tiết trong
-`openspec/specs/forecasting/spec.md`, phần "Định dạng dữ liệu đầu vào" và "Định dạng dữ liệu đầu ra". Design.md này không lặp lại toàn bộ, chỉ tham chiếu để tránh hai tài liệu lệch nhau khi cập nhật.
+`news_time` > `forecast_time`
 
-## 4. Lựa chọn công nghệ
+Mục tiêu:
 
-| Hạng mục | Lựa chọn cho MVP (Phần A) | Hướng nâng cấp sau (Phần B / điểm cộng) |
-|---|
-| Ngôn ngữ | Python | Python + Streamlit (nếu nâng dashboard) |
-| Dữ liệu | CSV mô phỏng, tự tạo | Yahoo Finance + dataset tin tức thật (điểm cộng C1) |
-| Evidence Extraction | Rule-based theo từ khóa | FinBERT/LLM extraction (điểm cộng C2) |
-| Forecast Model | Rule-based (đếm positive/negative) | Logistic Regression / LSTM / Transformer (điểm cộng C2) |
-| Dashboard | Jupyter Notebook | Streamlit + Plotly (tương tác) |
-| Testing | pytest đơn giản | pytest + schema validation |
+- Ngăn temporal leakage.
+- Đảm bảo tính hợp lệ của thực nghiệm.
 
-Lý do chọn rule-based và dữ liệu mô phỏng cho MVP: đây là lựa chọn nhanh nhất để hoàn thành đủ 7 điểm Phần A, không phụ thuộc vào việc thu thập dữ liệu thật hoặc cài đặt môi trường GPU, đồng thời rule-based dễ giải thích - phù hợp với mục tiêu cốt lõi của đồ án là kiểm chứng faithfulness hơn là tối ưu accuracy.
+#### Bước 3: Evidence Extraction
 
-## 5. Cấu trúc thư mục mã nguồn
+Từ mỗi tin tức:
 
-Cấu trúc thư mục mã nguồn bám theo đúng cây thư mục đề bài yêu cầu (mục 9), mỗi file ứng với một thành phần ở mục 2:
+- Trích xuất evidence.
+- Xác định polarity.
+- Gán expected_direction.
 
-- `data/sample_news_price.csv` - dữ liệu mẫu, đầu vào cho toàn bộ pipeline
-- `src/retriever.py` - Temporal Retriever (mục 2.1)
-- `src/evidence_extractor.py` - Evidence Extractor (mục 2.2)
-- `src/forecast_model.py` - Forecast Model, gộp luôn Evidence Selector ở MVP (mục 2.3, 2.4)
-- `src/faithfulness_metrics.py` - Faithfulness Evaluator (mục 2.5)
-- `src/dashboard.py` - Dashboard (mục 2.6)
-- `tests/test_temporal_retriever.py` - test cho Temporal Retriever
-- `tests/test_metrics.py` - test cho Faithfulness Evaluator
-- `outputs/prediction_results.csv`, `outputs/faithfulness_results.csv` - kết quả chạy pipeline
-- `outputs/figures/` - hình ảnh biểu đồ xuất ra từ Dashboard
+Ví dụ:
 
-## 6. Các quyết định thiết kế quan trọng và lý do lựa chọn
+Apple reports weak iPhone sales
 
-- **Vì sao tính confidence_drop bằng cách chạy lại model thay vì ước lượng**: chạy lại Forecast Model với input đã loại bỏ evidence cho kết quả chính xác và dễ kiểm chứng hơn so với việc ước lượng gián tiếp, dù tốn thêm một lượt tính toán cho mỗi mẫu.
-- **Vì sao Evidence Selector được gộp tạm vào Forecast Model ở MVP**: tránh tạo thêm một module riêng khi yêu cầu A4/A5 chưa bắt buộc phân tách pro/counterevidence, giảm độ phức tạp ban đầu; sẽ tách riêng khi triển khai B2.
-- **Vì sao chọn rule-based theo từ khóa cho Evidence Extractor**: đáp ứng đúng yêu cầu tối thiểu của A4 (ít nhất 5 ví dụ đúng/sai), không cần huấn luyện model hay tải thư viện NLP nặng, dễ debug khi evidence trích sai.
-- **Vì sao chọn Jupyter Notebook làm Dashboard mặc định**: thỏa điều kiện tối thiểu của A7 ("dashboard hoặc notebook chạy được"), không yêu cầu cài đặt phức tạp, mọi thành viên có thể chạy ngay trên Google Colab.
+- Evidence: weak iPhone sales
+- Polarity: negative
+- Direction: DOWN
 
-## 7. Giới hạn của thiết kế MVP
+#### Bước 4: Evidence Selection
 
-- Rule-based theo từ khóa có thể trích sai evidence khi tin tức dùng từ ngữ mơ hồ hoặc phủ định kép (ví dụ: "not as weak as expected").
-- Confidence ở Forecast Model rule-based chỉ phản ánh tỉ lệ số lượng evidence, chưa phản ánh được mức độ quan trọng (severity) của từng evidence.
-- Thiết kế này chưa xử lý trường hợp một tin tức ảnh hưởng đến nhiều ticker khác nhau cùng lúc.
-- Các giới hạn này sẽ được ghi nhận lại trong phần Limitations của báo cáo cuối kỳ, theo đúng lưu ý đạo đức ở mục 12 của đề bài).
+Chọn evidence quan trọng nhất cho prediction.
+
+Phân loại:
+
+- Pro Evidence
+- Counterevidence
+
+#### Bước 5: Forecasting
+
+Sinh:
+
+- Prediction
+- Confidence Score
+
+Các nhãn:
+
+- UP
+- DOWN
+- HOLD
+
+#### Bước 6: Faithfulness Evaluation
+
+Đánh giá:
+
+- Evidence Support
+- Temporal Validity
+- Confidence Drop
+
+#### Bước 7: Visualization
+
+Hiển thị:
+
+- Prediction
+- Evidence
+- Faithfulness Metrics
+- Warnings
+
+### c. Sequence Diagram
+
+Sơ đồ dưới đây mô tả luồng tương tác giữa các module trong hệ thống từ khi nhận dữ liệu đầu vào đến khi hiển thị kết quả.
+
+```mermaid
+sequenceDiagram
+
+participant User
+participant Retriever as Temporal Retriever
+participant Extractor as Evidence Extractor
+participant Selector as Evidence Selector
+participant Forecast as Forecast Model
+participant Evaluator as Faithfulness Evaluator
+participant Dashboard
+
+User->>Retriever: Input ticker, forecast_time, news
+
+Retriever->>Extractor: valid_news
+
+Extractor->>Selector: extracted_evidence
+
+Selector->>Forecast: selected_evidence
+
+Forecast->>Evaluator: prediction, confidence
+
+Evaluator->>Dashboard: faithfulness_metrics
+
+Dashboard->>User: prediction, evidence, metrics
+```
+
+## 3. Cấu trúc thư mục mã nguồn
+
+project_root/
+  data/
+    sample_news_price.csv
+  src/
+    retriever.py
+    evidence_extractor.py
+    evidence_selector.py
+    forecast_model.py
+    faithfulness_metrics.py
+    dashboard.py
+  tests/
+    test_temporal_retriever.py
+    test_metrics.py
+  outputs/
+    prediction_results.csv
+    faithfulness_results.csv
+    figures/
+      prediction_distribution.png
+      confidence_drop.png
+      temporal_leakage_warning.png
+      faithfulness_radar.png
+  openspec/
+
+## 4. Thiết kế dữ liệu
+
+### a. Input Schema
+
+```json
+{
+  "ticker": "AAPL",
+  "forecast_time": "2025-03-12 09:00",
+  "news": [
+    {
+      "news_id": "N001",
+      "news_time": "2025-03-11 08:30",
+      "title": "Apple reports weak iPhone sales in China",
+      "text": "..."
+    }
+  ],
+  "price_features": {
+    "price_5d_return": -0.02,
+    "volume_change": 0.15
+  },
+  "label": "DOWN"
+}
+```
+
+### c. Dataset Schema
+
+| Field | Type | Description |
+|--------|--------|--------|
+| ticker | string | Mã cổ phiếu |
+| forecast_time | datetime | Thời điểm dự báo |
+| news_id | string | Mã tin tức |
+| news_time | datetime | Thời điểm xuất bản tin |
+| title | string | Tiêu đề tin tức |
+| news_text | string | Nội dung tin tức |
+| price_5d_return | float | Biến động giá 5 ngày |
+| volume_change | float | Biến động khối lượng giao dịch |
+| label | string | Nhãn thực tế (UP/DOWN/HOLD) |
+
+### c. Output Schema
+
+```json
+{
+  "ticker": "AAPL",
+  "prediction": "DOWN",
+  "confidence": 0.72,
+  "evidence": [
+    {
+      "news_id": "N001",
+      "evidence_text": "weak iPhone sales in China",
+      "polarity": "negative",
+      "expected_direction": "DOWN",
+      "support_score": 1.0
+    }
+  ],
+  "faithfulness": {
+    "temporal_validity": 1.0,
+    "evidence_support": 1.0,
+    "confidence_drop": 0.21
+  }
+}
+```
+
+## 5. Thiết kế các Module
+
+### a. Temporal Retriever
+
+#### Mục tiêu
+
+Loại bỏ dữ liệu tương lai.
+
+#### Input
+
+forecast_time
+news_list
+
+#### Output
+
+valid_news
+invalid_future_news
+
+#### Thuật toán
+
+For each news:
+
+  If news_time <= forecast_time: 
+    valid_news
+  Else:
+    invalid_future_news
+
+### b. Evidence Extractor
+
+#### Mục tiêu
+
+Trích xuất evidence từ nội dung tin tức.
+
+#### Input
+
+news_text
+
+#### Output
+
+evidence_text
+polarity
+expected_direction
+
+#### Phiên bản cơ bản
+
+Rule-based keyword matching.
+
+Ví dụ:
+
+| Keyword | Polarity |
+|--------|--------|
+| beats expectations | positive |
+| strong growth | positive |
+| weak sales | negative |
+| misses expectations | negative |
+
+### c. Evidence Selector
+
+#### Mục tiêu
+
+Chọn evidence quan trọng nhất.
+
+#### Output
+
+pro_evidence
+counterevidence
+
+#### Chiến lược:
+
+Ưu tiên:
+
+- Evidence có sentiment mạnh.
+- Evidence xuất hiện nhiều lần.
+- Evidence gần thời điểm dự báo.
+
+### d. Forecast Model
+
+#### Phiên bản cơ bản
+
+Rule-based.
+
+#### Công thức
+
+score = positive_count - negative_count
+
+positive_count = số evidence positive
+
+negative_count = số evidence negative
+
+confidence = |score| / total_evidence
+
+Quy tắc:
+
+- score > 0 -> UP
+- score < 0 -> DOWN
+- score = 0 -> HOLD
+
+#### Confidence
+
+confidence = abs(score) / total_evidence
+
+### e. Faithfulness Evaluator
+
+#### Evidence Support
+
+ES = supporting_evidence / total_evidence
+
+#### Temporal Validity
+
+TV = valid_evidence / total_evidence
+
+#### Confidence Drop
+
+CD = original_confidence - confidence_without_evidence
+
+## 6. Thiết kế Error Handling
+
+### Mục tiêu
+
+Đảm bảo hệ thống vẫn hoạt động ổn định khi gặp dữ liệu không hợp lệ hoặc thiếu thông tin.
+
+### Trường hợp 1: Missing forecast_time
+
+Input:
+
+- forecast_time = null
+
+Hành động:
+
+- Dừng xử lý bản ghi.
+- Ghi log lỗi.
+
+Output:
+
+```json
+{
+  "error": "Missing forecast_time"
+}
+```
+
+### Trường hợp 2: Missing news_time
+
+Input:
+
+- news_time = null
+
+Hành động:
+
+- Loại bỏ bản tin.
+- Ghi log lỗi.
+
+Output:
+
+- invalid_news
+
+### Trường hợp 3: Empty news list
+
+Input:
+
+```json
+{
+  "news": []
+}
+```
+
+Hành động:
+
+- Không thực hiện Evidence Extraction.
+
+Output:
+
+```json
+{
+  "prediction": "HOLD",
+  "confidence": 0.0
+}
+```
+
+### Trường hợp 4: Invalid datetime format
+
+Ví dụ: `2025/13/40`
+
+Hành động:
+
+- Đánh dấu dữ liệu không hợp lệ.
+- Ghi log lỗi.
+
+Error Log Schema:
+
+```json
+{
+  "timestamp": "2025-03-12 09:00",
+  "module": "Temporal Retriever",
+  "error_type": "Missing news_time",
+  "record_id": "N001"
+}
+```
+
+## 7. Thiết kế Dashboard
+
+### a. Công nghệ
+
+Phiên bản cơ bản: Jupyter Notebook hoặc Streamlit
+
+### b. Màn hình chính
+
+#### Prediction Panel
+
+Ticker: AAPL
+
+Prediction: DOWN
+
+Confidence: 0.72
+
+#### Evidence Table
+
+| Evidence | Direction | Support |
+|--------|--------|--------|
+| weak iPhone sales | DOWN | 1.0 |
+
+#### Faithfulness Metrics
+
+| Metric | Value |
+|--------|--------|
+| Evidence Support | 1.0 |
+| Temporal Validity | 1.0 |
+| Confidence Drop | 0.21 |
+
+#### Temporal Leakage Warning
+
+⚠ 2 future news articles detected
+
+## 8. Thiết kế biểu đồ
+
+#### Biểu đồ 1
+
+Prediction Distribution
+
+- UP
+- DOWN
+- HOLD
+
+Biểu đồ cột thể hiện số lượng prediction.
+
+#### Biểu đồ 2
+
+Confidence Drop
+
+- Original Confidence
+- Without Evidence
+
+Biểu đồ cột so sánh.
+
+#### Biểu đồ 3
+
+Temporal Leakage
+
+- Valid News
+- Invalid News
+
+Biểu đồ tròn.
+
+#### Biểu đồ 4
+
+Faithfulness Radar
+
+Các trục:
+
+- Support
+- Temporal Validity
+- Confidence Drop
+- Sufficiency (nâng cao)
+- Counterevidence Coverage (nâng cao)
+
+## 9. Thiết kế Testing
+
+### Unit Test
+
+#### test_temporal_retriever.py
+
+Kiểm tra:
+
+- Tin hợp lệ.
+- Tin tương lai.
+- Nhiều tin cùng lúc.
+
+#### test_metrics.py
+
+Kiểm tra:
+
+- Evidence Support.
+- Temporal Validity.
+- Confidence Drop.
+
+## 10. Thiết kế Agentic SDLC
+
+### Research Agent
+
+Nhiệm vụ:
+
+- Phân tích yêu cầu.
+- Đề xuất metric.
+- Xây dựng OpenSpec.
+
+Output: proposal.md, spec.md
+
+### Coding Agent
+
+Nhiệm vụ:
+
+- Sinh code mẫu.
+- Sinh cấu trúc module.
+
+Output: src/
+
+### Testing Agent
+
+Nhiệm vụ:
+
+- Sinh test cases.
+- Sinh dữ liệu lỗi.
+
+Output: tests/
+
+### Human Review Gate
+
+Mỗi giai đoạn phải được nhóm kiểm tra trước khi chuyển sang bước tiếp theo.
+
+```mermaid
+flowchart LR
+  A[Requirement] --> B[Human Review]
+    B --> C[Design]
+    C --> D[Human Review]
+    D --> E[Implementation]
+    E --> F[Human Review]
+    F --> G[Testing]
+    G --> H[Human Review]
+```
+
+## 11. Requirement Traceability
+
+| Requirement | Mô tả | Module thiết kế |
+|------------|--------|----------------|
+| FR-01 | Data Loading | Data Layer / Input Schema |
+| FR-02 | Temporal Retriever | Temporal Retriever |
+| FR-03 | Evidence Extraction | Evidence Extractor |
+| FR-04 | Evidence Selection | Evidence Selector |
+| FR-05 | Forecast Model | Forecast Model |
+| FR-06 | Faithfulness Evaluation | Faithfulness Evaluator |
+| FR-07 | Visualization Dashboard | Dashboard |
+
+## 12. Rủi ro và Giới hạn
+
+- Dataset nhỏ có thể gây bias.
+- Rule-based model có độ chính xác thấp.
+- Evidence extraction có thể bỏ sót thông tin quan trọng.
+- Confidence không phản ánh xác suất thực tế.
+- Faithfulness metric chỉ đánh giá một phần khả năng giải thích.
+- Không sử dụng cho quyết định đầu tư thực tế.
