@@ -39,7 +39,7 @@ Hệ thống sẽ:
 - High-frequency trading.
 - Portfolio optimization.
 
-## 3. User 
+## 3. User Story
 
 ### US-01: Xem dự báo cổ phiếu
 
