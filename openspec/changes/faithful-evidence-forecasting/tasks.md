@@ -1,80 +1,476 @@
-# Task Allocation & Management (Nhóm 3 Thành viên)
+# Tasks
 
-**Quy ước trạng thái:**
-* `[ ]` = Chưa làm
-* `[x]` = Đã hoàn thành
+## Tổng quan
 
-**Phân công vai trò:**
-* **SV1:** Research & Spec Owner
-* **SV2:** ML/NLP Engineer
-* **SV3:** Visualization & QA Engineer
+Tài liệu này mô tả các công việc cần thực hiện để xây dựng hệ thống **Faithful Evidence-Centric Financial News Forecasting** theo quy trình Agentic SDLC.
 
----
+## Milestone 1: Requirement Analysis
 
-## 1. OpenSpec & Agentic SDLC (A1) — Phụ trách: SV1
-* [x] Viết `proposal.md` (bối cảnh, động lực, mục tiêu, vai trò AI agent trong SDLC)
-* [x] Viết `spec.md` (input/output, chức năng chính, acceptance criteria Given/When/Then)
-* [x] Viết `tasks.md` (file này)
-* [x] Viết `design.md` (kiến trúc pipeline, data schema chi tiết, lựa chọn công nghệ)
-* [x] Viết `metric_definition.md` (định nghĩa công thức Evidence Support, Temporal Validity, Confidence Drop)
+### TASK-001: Phân tích yêu cầu
 
-## 2. Dataset mẫu (A2) — Phụ trách: SV2
-* [ ] Tạo file `data/sample_news_price.csv` với tối thiểu 30 dòng
-* [ ] Đảm bảo có đủ các trường: `ticker`, `forecast_time`, `news_time`, `news_text`, `label` (UP/DOWN/HOLD)
-* [ ] Đưa vào ít nhất 5-10 dòng có `news_time` sau `forecast_time` để test temporal leakage
-* [ ] Thống nhất với cả nhóm bộ ticker mẫu dùng chung (ví dụ: AAPL, TSLA, NVDA) trước khi viết code các module khác để tránh dữ liệu không khớp giữa các phần
+**Mục tiêu**
 
-## 3. Temporal Retriever (A3) — Phụ trách: SV2
-* [ ] Viết `src/retriever.py`: hàm lọc tin theo `forecast_time`, trả về `valid_news` và `invalid_future_news`
-* [ ] Viết test case minh họa lỗi temporal leakage (ví dụ: `forecast_time` 09:00, `news_time` 15:00 cùng ngày $\rightarrow$ bị loại)
-* [ ] Bàn giao cho SV3 để viết `tests/test_temporal_retriever.py`
+Hiểu bài toán, xác định phạm vi và yêu cầu của hệ thống.
 
-## 4. Evidence Extraction (A4) — Phụ trách: SV2
-* [ ] Viết `src/evidence_extractor.py`: trích xuất `evidence_text` từ `news_text`
-* [ ] Phân loại `polarity` (positive/negative/neutral) và `expected_direction` (UP/DOWN/HOLD)
-* [ ] Chuẩn bị tối thiểu 5 ví dụ đúng và 5 ví dụ sai để minh họa độ chính xác của bước trích xuất
+**Output**
 
-## 5. Forecast Model cơ bản (A5) — Phụ trách: SV2
-* [ ] Viết `src/forecast_model.py`: xây dựng rule-based model (ví dụ: `positive_count` − `negative_count` > 0 $\rightarrow$ UP, < 0 $\rightarrow$ DOWN, = 0 $\rightarrow$ HOLD)
-* [ ] Trả về kèm `confidence`/`score` cho mỗi prediction
-* [ ] Tính accuracy hoặc confusion matrix trên dataset mẫu
-* [ ] Chuẩn bị 1 ví dụ giải thích chi tiết một prediction cụ thể (để dùng trong báo cáo và demo)
+- proposal.md
+- spec.md
 
-## 6. Faithfulness Metrics cơ bản (A6) — Phụ trách: SV2 *(phối hợp với SV1 về định nghĩa metric)*
-* [ ] Viết `src/faithfulness_metrics.py`: tính toán *Evidence Support* và *Temporal Validity*
-* [ ] Viết hàm tính *Confidence Drop*: chạy lại forecast sau khi bỏ cited evidence khỏi input, so sánh confidence trước/sau
-* [ ] Xuất bảng kết quả faithfulness cho nhiều mẫu ra file `outputs/faithfulness_results.csv`
+**Độ ưu tiên**
 
-## 7. Visualization Dashboard & báo cáo (A7) — Phụ trách: SV3
-* [ ] Viết `src/dashboard.py` (sử dụng Jupyter Notebook hoặc Streamlit — theo lựa chọn đã thống nhất của nhóm)
-* [ ] Tạo tối thiểu 4 bảng/hình:
-  * Prediction distribution
-  * Evidence table
-  * Confidence drop chart
-  * Temporal leakage warning
-* [ ] Lưu hình ảnh vào thư mục `outputs/figures/`:
-  * `prediction_distribution.png`
-  * `confidence_drop.png`
-  * `temporal_leakage_warning.png`
-  * `faithfulness_radar.png`
-* [ ] Hỗ trợ SV1 viết phần 4-7 của báo cáo (mô tả dữ liệu, pipeline, metric, kết quả thực nghiệm)
+High
 
-## 8. Testing & QA — Phụ trách: SV3
-* [ ] Viết `tests/test_temporal_retriever.py` (dựa trên test case của SV2 ở mục 3)
-* [ ] Viết `tests/test_metrics.py` cho các hàm trong `faithfulness_metrics.py`
-* [ ] Chạy lại toàn bộ test trước khi nộp, đảm bảo không còn lỗi tồn đọng
+**Trạng thái**
 
-## 9. Báo cáo & Demo — Phụ trách: Toàn nhóm *(SV1 chủ trì tổng hợp)*
-* [ ] Viết phần 1-3 báo cáo (giới thiệu, research gap, thiết kế Agentic SDLC) — **SV1**
-* [ ] Viết phần 4-7 báo cáo (dữ liệu, pipeline, metric, kết quả) — **SV2 + SV3**
-* [ ] Viết phần 8-10 báo cáo (phân tích case đúng/sai, limitations, phụ lục) — **Toàn nhóm**
-* [ ] Quay video demo theo kịch bản 5 phút (mục 11.1 trong đề bài) — **Toàn nhóm**
-* [ ] Chuẩn bị câu trả lời cho các câu hỏi phản biện (mục 11.3 trong đề bài) — **Toàn nhóm** *(SV1 hỗ trợ phần lý thuyết)*
+Completed
 
-## 10. Mở rộng (Phần B / Điểm cộng) — *Chỉ làm nếu còn thời gian*
-* [ ] **B1:** Sufficiency + Counterfactual Perturbation
-* [ ] **B2:** Counterevidence Coverage
-* [ ] **B3:** Market Consistency + Regime Analysis
-* [ ] **B4:** Agentic SDLC Maturity (multi-agent role, trace log, quality gate)
-* [ ] **C1:** Thay dataset mô phỏng bằng dữ liệu thật ($\ge$ 3 ticker, $\ge$ 300 mẫu)
-* [ ] **C2:** Thay rule-based model bằng FinBERT/LSTM/Transformer (yêu cầu GPU)
+### TASK-002: Xây dựng OpenSpec
+
+**Mục tiêu**
+
+Hoàn thiện các tài liệu OpenSpec.
+
+**Output**
+
+- proposal.md
+- design.md
+- spec.md
+- tasks.md
+
+**Độ ưu tiên**
+
+High
+
+**Trạng thái**
+
+Completed
+
+## Milestone 2: Dataset Preparation
+
+### TASK-003: Xây dựng Dataset
+
+**Mục tiêu**
+
+Chuẩn bị dữ liệu đầu vào.
+
+**Yêu cầu**
+
+- Tối thiểu 30 mẫu.
+- Có ticker.
+- Có forecast_time.
+- Có news_time.
+- Có news_text.
+- Có label.
+
+**Output**
+
+data/sample_news_price.csv
+
+**Độ ưu tiên**
+
+High
+
+**Trạng thái**
+
+Completed
+
+### TASK-004: Kiểm tra dữ liệu
+
+**Mục tiêu**
+
+Đảm bảo dữ liệu hợp lệ.
+
+**Kiểm tra**
+
+- Thiếu dữ liệu.
+- Sai định dạng thời gian.
+- Trùng dữ liệu.
+- Temporal Leakage.
+
+**Output**
+
+Dataset sạch.
+
+**Độ ưu tiên**
+
+Medium
+
+**Trạng thái**
+
+Completed
+
+## Milestone 3: Temporal Retriever
+
+### TASK-005: Xây dựng Temporal Retriever
+
+**Mục tiêu**
+
+Lọc tin tức hợp lệ.
+
+**Input**
+
+- forecast_time
+- news_list
+
+**Output**
+
+- valid_news
+- invalid_future_news
+
+src/retriever.py
+
+**Độ ưu tiên**
+
+High
+
+**Trạng thái**
+
+Completed
+
+### TASK-006: Unit Test cho Temporal Retriever
+
+**Mục tiêu**
+
+Kiểm tra khả năng phát hiện Temporal Leakage.
+
+**Test Cases**
+
+- Tin hợp lệ.
+- Tin trong tương lai.
+- Danh sách nhiều tin.
+
+**Output**
+
+tests/test_temporal_retriever.py
+
+**Độ ưu tiên**
+
+High
+
+**Trạng thái**
+
+Completed
+
+## Milestone 4: Evidence Extraction
+
+### TASK-007: Xây dựng Evidence Extractor
+
+**Mục tiêu**
+
+Trích xuất evidence từ tin tức.
+
+**Input**
+
+news_text
+
+**Output**
+
+- evidence_text
+- polarity
+- expected_direction
+
+src/evidence_extractor.py
+
+**Độ ưu tiên**
+
+High
+
+**Trạng thái**
+
+Completed
+
+### TASK-008: Xây dựng Evidence Selector
+
+**Mục tiêu**
+
+Lựa chọn evidence quan trọng nhất.
+
+**Output**
+
+- pro evidence
+- counterevidence
+
+**Độ ưu tiên**
+
+High
+
+**Trạng thái**
+
+Completed
+
+## Milestone 5: Forecast Model
+
+### TASK-009: Xây dựng Forecast Model
+
+**Mục tiêu**
+
+Sinh prediction.
+
+**Prediction**
+
+- UP
+- DOWN
+- HOLD
+
+**Confidence**
+
+```text
+[0; 1]
+```
+
+**Output**
+
+src/forecast_model.py
+
+**Độ ưu tiên**
+
+High
+
+**Trạng thái**
+
+Completed
+
+### TASK-010: Đánh giá mô hình
+
+**Mục tiêu**
+
+Tính:
+
+- Accuracy
+- Confusion Matrix
+
+**Output**
+
+outputs/prediction_results.csv
+
+**Độ ưu tiên**
+
+Medium
+
+**Trạng thái**
+
+Completed
+
+## Milestone 6: Faithfulness Evaluation
+
+### TASK-011: Tính Evidence Support
+
+**Output**
+
+Support Score
+
+**Độ ưu tiên**
+
+High
+
+**Trạng thái**
+
+Completed
+
+### TASK-012: Tính Temporal Validity
+
+**Output**
+
+Temporal Validity
+
+**Độ ưu tiên**
+
+High
+
+**Trạng thái**
+
+Completed
+
+### TASK-013: Tính Confidence Drop
+
+**Output**
+
+Confidence Drop
+
+**Độ ưu tiên**
+
+High
+
+**Trạng thái**
+
+Completed
+
+### TASK-014: Xuất Faithfulness Metrics
+
+**Output**
+
+outputs/faithfulness_results.csv
+
+**Độ ưu tiên**
+
+Medium
+
+**Trạng thái**
+
+Completed
+
+## Milestone 7: Visualization Dashboard
+
+### TASK-015: Xây dựng Dashboard
+
+Dashboard phải hiển thị:
+
+- Prediction
+- Confidence
+- Evidence
+- Faithfulness Metrics
+
+**Output**
+
+src/dashboard.py
+
+**Độ ưu tiên**
+
+High
+
+**Trạng thái**
+
+Completed
+
+### TASK-016: Prediction Distribution
+
+Sinh biểu đồ:
+
+Prediction Distribution
+
+**Output**
+
+figures/prediction_distribution.png
+
+### TASK-017: Confidence Drop Chart
+
+Sinh biểu đồ:
+
+Confidence Drop
+
+**Output**
+
+figures/confidence_drop.png
+
+### TASK-018: Temporal Leakage Visualization
+
+Sinh biểu đồ:
+
+Temporal Leakage Warning
+
+**Output**
+
+figures/temporal_leakage_warning.png
+
+### TASK-019: Faithfulness Radar
+
+Sinh Radar Chart.
+
+**Output**
+
+figures/faithfulness_radar.png
+
+## Milestone 8: Testing
+
+### TASK-020: Unit Test
+
+Kiểm tra:
+
+- Retriever
+- Evidence Extractor
+- Forecast Model
+- Faithfulness Metrics
+
+**Output**
+
+tests/
+
+### TASK-021: Integration Test
+
+Kiểm tra toàn bộ pipeline.
+
+```mermaid
+flowchart LR
+  A[Dataset] --> B[Retriever]
+    B --> C[Evidence Extractor]
+    C --> D[Forecast]
+    D --> E[Metrics]
+    E --> F[Dashboard]
+```
+
+## Milestone 9: Documentation
+
+### TASK-022: README
+
+Viết hướng dẫn chạy dự án.
+
+**Output**
+
+README.md
+
+### TASK-023: Report
+
+Viết báo cáo.
+
+Nội dung:
+
+- Giới thiệu.
+- Thiết kế.
+- Thực nghiệm.
+- Đánh giá.
+- Hạn chế.
+
+**Output**
+
+report.pdf
+
+### TASK-024: Demo Video
+
+Quay video demo.
+
+Thời lượng:
+
+5–10 phút.
+
+## Milestone 10: Quality Gate
+
+### TASK-025: Human Review
+
+Kiểm tra:
+
+- OpenSpec
+- Dataset
+- Source Code
+- Dashboard
+- Testing
+- Report
+
+Điều kiện hoàn thành:
+
+- Không còn lỗi nghiêm trọng.
+- Toàn bộ test thành công.
+- Dashboard hoạt động.
+- Kết quả có thể tái lập.
+
+## Phân công thành viên
+
+| Thành viên | Vai trò | Công việc |
+|------------|---------|--------------|
+| Thành viên 1 | Research & Spec Owner | TASK-001 → TASK-004, TASK-022, TASK-023 |
+| Thành viên 2 | ML/NLP Engineer | TASK-005 → TASK-014 |
+| Thành viên 3 | Visualization & QA Engineer | TASK-015 → TASK-025 |
+
+## Tiêu chí hoàn thành dự án
+
+Dự án được xem là hoàn thành khi đáp ứng các điều kiện sau:
+
+- Hoàn thành toàn bộ tài liệu OpenSpec.
+- Dataset có tối thiểu 30 mẫu hợp lệ.
+- Temporal Retriever hoạt động chính xác.
+- Evidence Extractor trích xuất được evidence.
+- Forecast Model dự báo được UP/DOWN/HOLD.
+- Tính được các Faithfulness Metrics.
+- Dashboard hiển thị đầy đủ thông tin.
+- Toàn bộ Unit Test và Integration Test thành công.
+- Có README, báo cáo và video demo.
