@@ -362,6 +362,18 @@ When dashboard được hiển thị
 
 Then hệ thống phải hiển thị cảnh báo temporal leakage.
 
+### AC-07: Counterevidence Coverage
+
+Khi tin tức có chứa từ khóa trái ngược, hệ thống phải trích xuất được counter_evidence và cập nhật has_counter = True.
+
+### AC-08: Market Consistency
+
+Hệ thống phải tính toán được consistency_score dựa trên tương quan giữa label và price_5d_return.
+
+### AC-09: Agentic Trace
+
+Mỗi luồng thực thi phải ghi lại được Trace Log (JSONL) bao gồm role, task và reflection.
+
 ## 10. Agentic SDLC Integration
 
 ### Research Agent
