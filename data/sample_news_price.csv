@@ -1,2 +1,42 @@
-id,headline,timestamp,price_change
-1,Sample News,2026-06-21,0.05
+ticker,forecast_time,news_time,news_text,price_5d_return,volume_change,label
+AAPL,2025-03-12 09:00,2025-03-11 08:00,Apple reports weak iPhone sales in China,-4.20,18.5,DOWN
+AAPL,2025-03-12 09:00,2025-03-11 10:30,Apple launches new AI-powered Siri features,3.80,15.2,UP
+AAPL,2025-03-12 09:00,2025-03-12 11:30,Apple announces quarterly earnings above expectations,5.10,22.4,UP
+AAPL,2025-03-12 09:00,2025-03-10 15:00,Apple maintains stable MacBook sales,0.30,1.8,HOLD
+MSFT,2025-04-05 09:00,2025-04-04 13:00,Microsoft Azure revenue grows significantly,4.60,17.3,UP
+MSFT,2025-04-05 09:00,2025-04-03 16:00,Microsoft faces antitrust investigation in Europe,-3.90,20.1,DOWN
+MSFT,2025-04-05 09:00,2025-04-05 12:30,Microsoft acquires cybersecurity startup,2.90,11.4,UP
+MSFT,2025-04-05 09:00,2025-04-02 09:15,Microsoft stock remains stable after investor meeting,0.10,0.9,HOLD
+GOOGL,2025-05-08 09:00,2025-05-07 10:20,Google Cloud reports strong quarterly growth,4.30,19.5,UP
+GOOGL,2025-05-08 09:00,2025-05-06 14:10,Google fined for advertising practices,-3.60,21.2,DOWN
+GOOGL,2025-05-08 09:00,2025-05-08 15:00,Google introduces next-generation Gemini model,4.80,18.6,UP
+GOOGL,2025-05-08 09:00,2025-05-05 11:30,Google search market share remains unchanged,0.00,1.2,HOLD
+AMZN,2025-06-10 09:00,2025-06-09 09:30,Amazon Prime Day sales expected to increase,4.50,20.3,UP
+AMZN,2025-06-10 09:00,2025-06-08 14:20,Amazon warehouse workers begin strike,-4.10,22.8,DOWN
+AMZN,2025-06-10 09:00,2025-06-10 10:30,Amazon reports record quarterly revenue,5.40,24.5,UP
+AMZN,2025-06-10 09:00,2025-06-07 15:10,Amazon logistics operations remain stable,0.20,2.0,HOLD
+TSLA,2025-07-15 09:00,2025-07-14 09:40,Tesla vehicle deliveries exceed expectations,6.80,28.4,UP
+TSLA,2025-07-15 09:00,2025-07-13 10:15,Tesla recalls thousands of vehicles due to defect,-6.30,30.1,DOWN
+TSLA,2025-07-15 09:00,2025-07-15 11:20,Tesla announces affordable EV model,5.70,26.0,UP
+TSLA,2025-07-15 09:00,2025-07-12 16:30,Tesla production remains unchanged,0.10,1.6,HOLD
+NVDA,2025-08-20 09:00,2025-08-19 13:10,NVIDIA demand for AI chips continues to surge,7.10,31.5,UP
+NVDA,2025-08-20 09:00,2025-08-18 15:30,NVIDIA faces supply chain disruptions,-5.60,27.8,DOWN
+NVDA,2025-08-20 09:00,2025-08-20 12:00,NVIDIA unveils next-generation GPU architecture,6.40,29.2,UP
+NVDA,2025-08-20 09:00,2025-08-17 08:45,NVIDIA stock trades sideways,0.00,1.1,HOLD
+META,2025-09-18 09:00,2025-09-17 10:00,Meta advertising revenue beats estimates,4.70,18.9,UP
+META,2025-09-18 09:00,2025-09-16 13:20,Meta faces privacy lawsuit,-4.20,23.4,DOWN
+META,2025-09-18 09:00,2025-09-18 14:10,Meta launches new VR headset,4.90,20.7,UP
+META,2025-09-18 09:00,2025-09-15 09:40,Meta user growth remains stable,0.20,1.5,HOLD
+NFLX,2025-10-22 09:00,2025-10-21 10:30,Netflix subscriber growth exceeds forecasts,5.30,19.8,UP
+NFLX,2025-10-22 09:00,2025-10-20 15:40,Netflix content spending increases sharply,-3.70,17.6,DOWN
+NFLX,2025-10-22 09:00,2025-10-22 13:00,Netflix announces partnership with major studio,4.10,16.3,UP
+NFLX,2025-10-22 09:00,2025-10-19 11:50,Netflix subscriber numbers remain steady,0.10,1.3,HOLD
+INTC,2025-11-25 09:00,2025-11-24 14:00,Intel wins large government chip contract,4.40,17.4,UP
+INTC,2025-11-25 09:00,2025-11-23 10:45,Intel reports manufacturing delays,-4.50,20.5,DOWN
+INTC,2025-11-25 09:00,2025-11-25 11:45,Intel introduces next-generation processor lineup,4.80,19.7,UP
+INTC,2025-11-25 09:00,2025-11-22 09:10,Intel quarterly guidance remains unchanged,0.00,1.0,HOLD
+AAPL,2025-03-12 09:00,2025-03-11 08:00,"Apple reports profit growth but weak iPhone sales in China",0.20,14.8,HOLD
+MSFT,2025-04-05 09:00,2025-04-04 13:00,"Microsoft Azure revenue grows significantly despite lawsuit",0.10,15.9,HOLD
+GOOGL,2025-05-15 09:00,2025-05-14 10:00,"Google Cloud reports strong growth but faces decline in ad revenue",-0.10,16.2,HOLD
+AMZN,2025-06-20 09:00,2025-06-19 14:00,"Amazon Prime Day sales increase but warehouse workers begin strike",0.00,18.4,HOLD
+NVDA,2025-08-20 09:00,2025-08-19 13:00,"NVIDIA demand for AI chips surge despite supply chain weak points",0.30,19.6,HOLD
