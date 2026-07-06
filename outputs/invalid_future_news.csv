@@ -1,0 +1,10 @@
+ticker,forecast_time,news_time,news_text,price_5d_return,volume_change,label
+AAPL,2025-03-12 09:00:00,2025-03-12 11:30:00,Apple announces quarterly earnings above expectations,5.1,22.4,UP
+MSFT,2025-04-05 09:00:00,2025-04-05 12:30:00,Microsoft acquires cybersecurity startup,2.9,11.4,UP
+GOOGL,2025-05-08 09:00:00,2025-05-08 15:00:00,Google introduces next-generation Gemini model,4.8,18.6,UP
+AMZN,2025-06-10 09:00:00,2025-06-10 10:30:00,Amazon reports record quarterly revenue,5.4,24.5,UP
+TSLA,2025-07-15 09:00:00,2025-07-15 11:20:00,Tesla announces affordable EV model,5.7,26.0,UP
+NVDA,2025-08-20 09:00:00,2025-08-20 12:00:00,NVIDIA unveils next-generation GPU architecture,6.4,29.2,UP
+META,2025-09-18 09:00:00,2025-09-18 14:10:00,Meta launches new VR headset,4.9,20.7,UP
+NFLX,2025-10-22 09:00:00,2025-10-22 13:00:00,Netflix announces partnership with major studio,4.1,16.3,UP
+INTC,2025-11-25 09:00:00,2025-11-25 11:45:00,Intel introduces next-generation processor lineup,4.8,19.7,UP
