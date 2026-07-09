@@ -24,6 +24,7 @@ class EvidenceExtractor:
         self.df = pd.read_csv(csv_path)
         if "news_text" not in self.df.columns:
             raise ValueError("Missing required column: news_text")
+        logging.info("=" * 50)
         logging.info(f"Loaded {len(self.df)} news articles.")
 
     def _get_evidence_lists(self, text_lower):
@@ -77,7 +78,6 @@ class EvidenceExtractor:
             # Append giá trị đã được xử lý/xóa rỗng an toàn vào list
             pro_evidences_cols.append(pro_col)
             counter_evidences_cols.append(count_col)
-            # -------------------------------------------------------
 
         self.df["evidence_text"] = evidences
         self.df["sentiment"] = sentiments
@@ -91,12 +91,14 @@ class EvidenceExtractor:
         df = self.process()
         df.to_csv(output_file, index=False)
         logging.info(f"Evidence extracted: {len(df)}")
+        logging.info(f"Evidence CSV      : {output_file}")
+        logging.info("=" * 50)
         return df
 
 def main():
     extractor = EvidenceExtractor("outputs/valid_news.csv")
     df = extractor.export()
-    print(df[["news_text", "expected_direction", "pro_evidence", "counter_evidence"]].tail(6))
+    print(df[["news_text", "expected_direction", "pro_evidence", "counter_evidence"]].head(5))
 
 if __name__ == "__main__":
     main()

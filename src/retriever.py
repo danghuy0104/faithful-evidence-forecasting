@@ -139,12 +139,6 @@ def main():
 
     valid_news, invalid_news = retriever.export_results()
 
-    print("\n========== VALID NEWS ==========")
-    print(valid_news.head())
-
-    print("\n===== INVALID FUTURE NEWS =====")
-    print(invalid_news.head())
-
 
 if __name__ == "__main__":
     main()
