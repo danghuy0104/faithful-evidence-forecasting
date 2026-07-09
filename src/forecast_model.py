@@ -111,7 +111,6 @@ class ForecastModel:
         )
 
     def run(self):
-   
         self.df[
             [
                 "pro_evidence",
@@ -130,6 +129,8 @@ class ForecastModel:
         return self.df
 
     def evaluate(self):
+        labels = ["UP", "DOWN", "HOLD"]
+
         accuracy = accuracy_score(
             self.df["label"],
             self.df["prediction"]
@@ -138,21 +139,27 @@ class ForecastModel:
         cm = confusion_matrix(
             self.df["label"],
             self.df["prediction"],
-            labels=["UP", "DOWN", "HOLD"]
+            labels=labels
+        )
+
+        # Chuyển Confusion Matrix thành DataFrame có tiêu đề Hàng/Cột rõ ràng
+        cm_df = pd.DataFrame(
+            cm,
+            index=[f"Actual_{l}" for l in labels],
+            columns=[f"Pred_{l}" for l in labels]
         )
 
         report = classification_report(
             self.df["label"],
             self.df["prediction"],
+            labels=labels,
             zero_division=0
         )
 
         logging.info("=" * 50)
         logging.info(f"Accuracy : {accuracy:.2%}")
-        logging.info("\nConfusion Matrix")
-        logging.info("\n%s", cm)
-        logging.info("\nClassification Report")
-        logging.info("\n%s", report)
+        logging.info("\nConfusion Matrix:\n%s", cm_df)
+        logging.info("\nClassification Report:\n%s", report)
 
         return accuracy, cm
 
