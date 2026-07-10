@@ -5,7 +5,7 @@ logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
 class MarketEvaluator:
     def __init__(self, data_csv):
-        # Đọc file kết quả dự báo (chứa cột prediction, price_5d_return, volume_change)
+        # Đọc file kết quả dự báo
         self.df = pd.read_csv(data_csv)
         self.df.columns = self.df.columns.str.strip()
 
@@ -16,7 +16,7 @@ class MarketEvaluator:
         """
         def check_consistency(row):
             ret = row["price_5d_return"]
-            pred = str(row["prediction"]).upper() # Sử dụng prediction thay vì label gốc!
+            pred = str(row["prediction"]).upper() # Sử dụng prediction
             vol = row["volume_change"]
             
             # Khởi tạo trạng thái nhất quán
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     score = evaluator.evaluate_consistency()
     regime = evaluator.regime_analysis()
     
-    print(f"\n=== B3. MARKET CONSISTENCY & REGIME ANALYSIS ===")
+    print(f"\n=== MARKET CONSISTENCY & REGIME ANALYSIS ===")
     print(f"Market Consistency Score : {score:.2%}")
     print(f"Current Market Regime    : {regime}")
     print("-" * 50)
