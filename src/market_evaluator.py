@@ -13,40 +13,45 @@ class MarketEvaluator:
         """
         Đánh giá tính nhất quán giữa DỰ BÁO CỦA MÔ HÌNH (prediction) 
         với BIẾN ĐỘNG THỰC TẾ của thị trường (return & volume change).
+        
+        Trả về:
+        - directional_accuracy: Tỷ lệ dự báo đúng hướng thuần túy (0.0 - 1.0).
+        - weighted_consistency_index: Chỉ số nhất quán có tính thêm trọng số volume.
         """
-        def check_consistency(row):
+        def compute_row_metrics(row):
             ret = row["price_5d_return"]
-            pred = str(row["prediction"]).upper() # Sử dụng prediction
+            pred = str(row["prediction"]).upper()
             vol = row["volume_change"]
             
-            # Khởi tạo trạng thái nhất quán
-            is_directional_consistent = False
-            
+            # 1. Kiểm tra tính đúng hướng thuần túy (0 hoặc 1)
+            is_directional_consistent = 0
             if pred == "UP" and ret > 0:
-                is_directional_consistent = True
+                is_directional_consistent = 1
             elif pred == "DOWN" and ret < 0:
-                is_directional_consistent = True
+                is_directional_consistent = 1
             elif pred == "HOLD" and abs(ret) <= 0.5:
-                is_directional_consistent = True
+                is_directional_consistent = 1
                 
-            # Nếu dự báo tăng/giảm đúng xu hướng VÀ khối lượng giao dịch tăng (thị trường đồng thuận mạnh)
-            if is_directional_consistent and pred in ["UP", "DOWN"] and vol > 10.0:
-                return 1.2  # Tăng trọng số cho các case bùng nổ volume chuẩn xác
+            # 2. Tính điểm nhất quán kèm phần thưởng Volume
+            consistency_score = float(is_directional_consistent)
+            if is_directional_consistent == 1 and pred in ["UP", "DOWN"] and vol > 10.0:
+                consistency_score = 1.2  # Thưởng thêm 0.2 vào chỉ số nếu thanh khoản bùng nổ đồng thuận
             
-            return 1 if is_directional_consistent else 0
+            return pd.Series([is_directional_consistent, consistency_score])
 
-        self.df["consistency_score"] = self.df.apply(check_consistency, axis=1)
+        # Áp dụng hàm tính toán cho từng dòng và tạo 2 cột mới
+        self.df[["is_directional_correct", "consistency_score"]] = self.df.apply(compute_row_metrics, axis=1)
         
-        # Tính điểm nhất quán trung bình (chuẩn hóa về khoảng 100%)
-        final_score = self.df["consistency_score"].mean()
-        if final_score > 1.0: 
-            final_score = 1.0 # Cap lại ở mức 100%
-            
-        return final_score
+        # Tính toán giá trị trung bình tổng thể cho toàn tập dữ liệu
+        directional_accuracy = self.df["is_directional_correct"].mean()
+        weighted_consistency_index = self.df["consistency_score"].mean()
+        
+        return directional_accuracy, weighted_consistency_index
 
     def regime_analysis(self):
         """
-        Phân tích trạng thái thị trường (Regime Analysis) dựa trên phân phối xu hướng
+        Phân tích trạng thái thị trường (Regime Analysis) dựa trên phân phối xu hướng.
+        Trả về bộ 3 giá trị phục vụ trực tiếp cho báo cáo và trực quan hóa.
         """
         avg_return = self.df["price_5d_return"].mean()
         avg_volume = self.df["volume_change"].mean()
@@ -67,18 +72,30 @@ class MarketEvaluator:
         logging.info(f"Thống kê Regime: Avg Return: {avg_return:.2f}%, Avg Vol Change: {avg_volume:.2f}%")
         logging.info(f"Tỷ lệ dự báo của mô hình: UP: {up_ratio:.1%}, DOWN: {down_ratio:.1%}")
         
-        return regime
+        
+        return regime, avg_return, avg_volume
 
 if __name__ == "__main__":
-
+    # Khởi tạo bộ đánh giá với tệp đầu ra tương ứng
     evaluator = MarketEvaluator("outputs/counterevidence_coverage.csv")
     
-    score = evaluator.evaluate_consistency()
-    regime = evaluator.regime_analysis()
+    # Nhận về các chỉ số từ hệ thống
+    dir_accuracy, consistency_index = evaluator.evaluate_consistency()
+    market_regime, avg_ret, avg_vol = evaluator.regime_analysis()
     
     print(f"\n=== MARKET CONSISTENCY & REGIME ANALYSIS ===")
-    print(f"Market Consistency Score : {score:.2%}")
-    print(f"Current Market Regime    : {regime}")
-    print("-" * 50)
-    print("Mẫu dữ liệu kiểm định (Chỉ số Nhất quán dựa trên Prediction):")
-    print(evaluator.df[["news_text", "prediction", "price_5d_return", "volume_change", "consistency_score"]].head())
+    print(f"Directional Accuracy        : {dir_accuracy:.2%}")
+    print(f"Weighted Consistency Index  : {consistency_index:.2f} (baseline = 1.00)") 
+    print(f"Current Market Regime       : {market_regime}")
+    print(f"Average Market Return (5d)  : {avg_ret:.2f}%")
+    print(f"Average Volume Change       : {avg_vol:.2f}%")
+    print("-" * 65)
+    print("Mẫu dữ liệu kiểm định chi tiết:")
+    print(evaluator.df[[
+        "news_text", 
+        "prediction", 
+        "price_5d_return", 
+        "volume_change", 
+        "is_directional_correct",
+        "consistency_score"
+    ]].head())
