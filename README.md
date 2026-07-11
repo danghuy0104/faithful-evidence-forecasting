@@ -17,14 +17,14 @@ phụ thuộc thực sự của prediction vào bằng chứng.
 
 - **Temporal Retriever** — chỉ dùng tin có `news_time ≤ forecast_time`, tự động phát
   hiện & loại bỏ tin "tương lai" (temporal leakage).
-- **Evidence Extractor** — trích xuất bằng chứng theo từ khóa cảm xúc, phân loại
+- **Evidence Extractor** — trích xuất bằng chứng theo từ khóa sắc thái (sentiment keywords), phân loại
   *pro-evidence* / *counter-evidence*.
 - **Forecast Model** — quy tắc minh bạch `score = positive − negative` → UP/DOWN/HOLD
   kèm confidence.
 - **Faithfulness Check & Metrics** — thí nghiệm phản thực (bỏ evidence) và 3 chỉ số:
   Evidence Support, Temporal Validity, Confidence Drop.
 - **Counterevidence Evaluator** — đo tỷ lệ bao phủ bằng chứng trái chiều.
-- **Market Evaluator** — đối chiếu prediction với biến động giá/khối lượng thực tế.
+- **Market Evaluator** — Đánh giá độ chính xác hướng đi (Directional Accuracy), chỉ số nhất quán dòng tiền (Weighted Consistency Index) và phân tích trạng thái thị trường (Market Regime Analysis).
 - **Dashboard (Streamlit)** — giao diện tương tác theo kịch bản demo 5 phút + 4 biểu đồ
   tổng hợp xuất PNG.
 
@@ -32,38 +32,48 @@ phụ thuộc thực sự của prediction vào bằng chứng.
 
 ## 2. Kiến trúc pipeline
 
-```
-data/sample_news_price.csv
-        │
-        ▼
-┌───────────────────┐   valid_news.csv          (tin hợp lệ)
-│ retriever.py      │──────────────┐
-│ TemporalRetriever │   invalid_future_news.csv (tin leakage)
-└───────────────────┘              │
-        ▼                          │
-┌───────────────────┐              │
-│ evidence_extractor│  evidence_results.csv
-└───────────────────┘   (evidence_text, sentiment, expected_direction, pro/counter)
-        ▼
-┌───────────────────┐
-│ forecast_model.py │  prediction_results.csv   (prediction, confidence, score…)
-└───────────────────┘
-        ▼
-┌────────────────────────┐  faithfulness_check_results.csv  (phản thực: bỏ evidence)
-│ faithfulness_check.py  │
-└────────────────────────┘
-        ▼
-┌────────────────────────┐  faithfulness_results.csv
-│ faithfulness_metrics.py│   (evidence_support, temporal_validity, confidence_drop)
-└────────────────────────┘
-        ▼
-┌───────────────────┐   figures/*.png   ·   Streamlit UI
-│ dashboard.py      │
-└───────────────────┘
+```mermaid
+flowchart TD
+    %% Định nghĩa các node dữ liệu đầu vào/đầu ra
+    DATA[(📂 data/sample_news_price.csv)] --> RET[⚙️ src/retriever.py <br> TemporalRetriever]
+    
+    %% Tiến trình lọc rò rỉ thời gian
+    RET -->|invalid_future_news.csv| LEAK[❌ outputs/invalid_future_news.csv <br> Đống log chứa tin Leakage]
+    RET -->|valid_news.csv| EXT[⚙️ src/evidence_extractor.py <br> EvidenceExtractor]
+    
+    %% Trục Pipeline cốt lõi
+    EXT -->|evidence_results.csv| MODEL[⚙️ src/forecast_model.py <br> Forecast Model]
+    
+    %% Phân nhánh: Nhánh chính (Faithfulness) & Nhánh phụ (Market Evaluation)
+    MODEL -->|prediction_results.csv| CHECK[⚙️ src/faithfulness_check.py <br> Thí nghiệm phản thực]
+    MODEL -.->|prediction_results.csv| CE_EVAL[📊 src/counterevidence_evaluator.py]
+    
+    %% Luồng xử lý Nhánh phụ
+    CE_EVAL -->|counterevidence_coverage.csv| MKT_EVAL[📊 src/market_evaluator.py]
+    
+    %% Luồng xử lý Nhánh chính
+    CHECK -->|faithfulness_check_results.csv| METRICS[⚙️ src/faithfulness_metrics.py]
+    METRICS -->|faithfulness_results.csv| DASH[🖥️ src/dashboard.py <br> Streamlit UI]
+    
+    %% Hội tụ về Dashboard
+    MKT_EVAL -.->|Directional Accuracy & Index| DASH
+    DASH --> OUTPUT[🖼️ figures/*.png <br> Batch Export Charts]
+
+    %% Định dạng giao diện màu sắc cho các thành phần
+    classDef core fill:#e1f5fe,stroke:#0288d1,stroke-width:1px;
+    classDef side fill:#fff3e0,stroke:#f57c00,stroke-width:1px;
+    classDef data fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
+    classDef ui fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
+    classDef error fill:#ffebee,stroke:#c62828,stroke-width:1px;
+    
+    class RET,EXT,MODEL,CHECK,METRICS core;
+    class CE_EVAL,MKT_EVAL side;
+    class DATA data;
+    class DASH,OUTPUT ui;
+    class LEAK error;
 ```
 
-Nhánh phụ: `counterevidence_evaluator.py` (counterevidence_coverage.csv) và
-`market_evaluator.py` đọc từ `prediction_results.csv` / `valid_news.csv`.
+Nhánh phụ: `counterevidence_evaluator.py` và `market_evaluator.py` chạy ở cuối pipeline để đánh giá độ bao phủ bằng chứng trái chiều và đối chiếu hiệu năng với dữ liệu thị trường.
 
 ---
 
@@ -72,7 +82,7 @@ Nhánh phụ: `counterevidence_evaluator.py` (counterevidence_coverage.csv) và
 ```
 faithful-evidence-forecasting-main/
 ├── data/
-│   └── sample_news_price.csv      # Dataset đầu vào (100 dòng, 23 mã cổ phiếu)
+│   └── sample_news_price.csv      # Dataset đầu vào
 ├── src/
 │   ├── retriever.py               # Temporal Retriever — lọc leakage
 │   ├── evidence_extractor.py      # Trích xuất & phân loại evidence
@@ -167,15 +177,25 @@ Bổ sung `evidence_text`, `sentiment`, `expected_direction`, `pro_evidence`,
 
 ---
 
-## 7. Chỉ số Faithfulness
+## 7. Các chỉ số đánh giá hệ thống (Metrics)
 
-| Chỉ số | Ý nghĩa |
-|--------|---------|
-| **Evidence Support** | Prediction có được nâng đỡ bởi evidence được trích dẫn không |
-| **Temporal Validity** | Dự báo chỉ dựa trên tin hợp lệ (không dùng thông tin tương lai) |
-| **Confidence Drop** | Mức sụt confidence khi **bỏ cited evidence** — cao ⇒ evidence thật sự *faithful*, không phải rationale trang trí |
+Hệ thống sử dụng hai bộ chỉ số độc lập để đánh giá toàn diện: (1) Tính trung thực của lời giải thích và (2) Tính nhất quán toán học đối với thị trường thực tế.
 
-Ngưỡng `faithful` mặc định: confidence drop ≥ **0.10** (chỉnh được trên dashboard).
+### 7.1. Chỉ số Trung thực (Faithfulness Metrics)
+
+| Chỉ số | Ý nghĩa | Ngưỡng đạt |
+|--------|---------|------------|
+| **Evidence Support (ES)** | Dự báo (Prediction) có được nâng đỡ và đồng nhất bởi hướng kỳ vọng của bằng chứng trích dẫn không. | Tỷ lệ % |
+| **Temporal Validity (TV)** | Đảm bảo dự báo chỉ dựa trên tin hợp lệ (tuyệt đối không sử dụng thông tin tương lai - loại bỏ leakage). | 1.00 (100%) |
+| **Confidence Drop (CD)** | Mức độ sụt giảm niềm tin của mô hình khi **bỏ đi bằng chứng (cited evidence)**. Điểm sụt giảm càng cao ⇒ bằng chứng thực sự đóng vai trò quyết định suy luận, không phải "trang trí". | ≥ **0.10** |
+
+### 7.2. Chỉ số Nhất quán Thị trường (Market Consistency Metrics)
+
+| Chỉ số / Thông tin | Ý nghĩa học thuật | Định dạng hiển thị |
+|--------------------|-------------------|-------------------|
+| **Directional Accuracy** | Tỷ lệ mô hình dự báo đúng hướng dịch chuyển giá thực tế của cổ phiếu (UP/DOWN/HOLD) sau 5 ngày. | Phần trăm (0% - 100%) |
+| **Weighted Consistency Index** | Chỉ số đo mức độ đồng thuận giữa dự báo đúng và dòng tiền thực. Hệ thống cộng thưởng trọng số (1.2) cho các ca đoán đúng xu hướng đi kèm bùng nổ thanh khoản ($Volume > 10\%$). | Số thực (Baseline = 1.00) |
+| **Market Regime Analysis** | Trạng thái vĩ mô của thị trường dựa trên biến động giao dịch trung bình (`Avg Return` và `Avg Volume Change`), phân loại thành *Bullish*, *Bearish*, hoặc *Sideway*. | Chuỗi ký tự & Số % |
 
 ---
 
@@ -192,7 +212,7 @@ Bộ test gồm: temporal retriever, faithfulness metrics, và giao diện Strea
 
 ## 9. Giới hạn (Limitations)
 
-- **Bằng chứng dựa trên từ khóa**: evidence rút bằng danh sách từ khóa cảm xúc cố định
+- **Bằng chứng dựa trên từ khóa**: evidence rút bằng danh sách từ khóa sắc thái cố định
   nên mô hình *faithful theo thiết kế* nhưng **chưa hiểu ngữ cảnh/mỉa mai** và có thể
   **bỏ sót bằng chứng diễn đạt gián tiếp**.
 - Dataset là dữ liệu **mô phỏng phục vụ học tập**, không phản ánh thị trường thực.
@@ -200,12 +220,6 @@ Bộ test gồm: temporal retriever, faithfulness metrics, và giao diện Strea
   *remove cited evidence* trở nên thiết yếu.
 
 ---
-
-## 10. Nhóm thực hiện
-
-- **Sinh viên 1** — Data & Temporal Retriever.
-- **Sinh viên 2** — Evidence Extraction, Forecast Model & Faithfulness.
-- **Sinh viên 3** — Visualization & QA (Dashboard, kiểm thử).
 
 Đặc tả chi tiết: xem thư mục [`openspec/`](openspec/). Link video demo:
 [`demo_video_link.txt`](demo_video_link.txt).
