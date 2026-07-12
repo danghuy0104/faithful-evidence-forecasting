@@ -56,7 +56,6 @@ flowchart TD
     
     %% Tổng hợp kết quả về Dashboard
     MKT_EVAL -.->|"Chỉ số kiểm định"| DASH
-    DASH --> OUTPUT["🖼️ *.png <br> Xuất biểu đồ tự động"]:::ui
 
     %% Định nghĩa bảng màu trực quan (Styles)
     classDef core fill:#e1f5fe,stroke:#0288d1,stroke-width:1px;
