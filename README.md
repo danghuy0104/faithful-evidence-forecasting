@@ -34,43 +34,36 @@ phụ thuộc thực sự của prediction vào bằng chứng.
 
 ```mermaid
 flowchart TD
-    %% Định nghĩa các node dữ liệu đầu vào/đầu ra
-    DATA[(📂 data/sample_news_price.csv)] --> RET[⚙️ src/retriever.py <br> TemporalRetriever]
+    %% Luồng xử lý dữ liệu và trích xuất tin tức
+    DATA[("📂 sample_news_price.csv")]:::data --> RET["⚙️ retriever.py <br> TemporalRetriever"]:::core
     
-    %% Tiến trình lọc rò rỉ thời gian
-    RET -->|invalid_future_news.csv| LEAK[❌ outputs/invalid_future_news.csv <br> Đống log chứa tin Leakage]
-    RET -->|valid_news.csv| EXT[⚙️ src/evidence_extractor.py <br> EvidenceExtractor]
+    RET -->|"invalid_future_news.csv"| LEAK["❌ invalid_future_news.csv <br> Dữ liệu rò rỉ thời gian"]:::error
+    RET -->|"valid_news.csv"| EXT["⚙️evidence_extractor.py <br> EvidenceExtractor"]:::core
     
     %% Trục Pipeline cốt lõi
-    EXT -->|evidence_results.csv| MODEL[⚙️ src/forecast_model.py <br> Forecast Model]
+    EXT -->|"evidence_results.csv"| MODEL["⚙️ forecast_model.py <br> Forecast Model"]:::core
     
-    %% Phân nhánh: Nhánh chính (Faithfulness) & Nhánh phụ (Market Evaluation)
-    MODEL -->|prediction_results.csv| CHECK[⚙️ src/faithfulness_check.py <br> Thí nghiệm phản thực]
-    MODEL -.->|prediction_results.csv| CE_EVAL[📊 src/counterevidence_evaluator.py]
+    %% Phân nhánh đánh giá
+    MODEL -->|"prediction_results.csv"| CHECK["⚙️ faithfulness_check.py <br> Thí nghiệm phản thực"]:::core
+    MODEL -.->|"prediction_results.csv"| CE_EVAL["📊 counterevidence_evaluator.py"]:::side
     
-    %% Luồng xử lý Nhánh phụ
-    CE_EVAL -->|counterevidence_coverage.csv| MKT_EVAL[📊 src/market_evaluator.py]
+    %% Tiến trình nhánh phụ (Đánh giá thị trường)
+    CE_EVAL -->|"counterevidence_coverage.csv"| MKT_EVAL["📊 market_evaluator.py"]:::side
     
-    %% Luồng xử lý Nhánh chính
-    CHECK -->|faithfulness_check_results.csv| METRICS[⚙️ src/faithfulness_metrics.py]
-    METRICS -->|faithfulness_results.csv| DASH[🖥️ src/dashboard.py <br> Streamlit UI]
+    %% Tiến trình nhánh chính (Đánh giá độ trung thực)
+    CHECK -->|"faithfulness_check_results.csv"| METRICS["⚙️ faithfulness_metrics.py"]:::core
+    METRICS -->|"faithfulness_results.csv"| DASH["🖥️ dashboard.py <br> Streamlit UI"]:::ui
     
-    %% Hội tụ về Dashboard
-    MKT_EVAL -.->|Directional Accuracy & Index| DASH
-    DASH --> OUTPUT[🖼️ figures/*.png <br> Batch Export Charts]
+    %% Tổng hợp kết quả về Dashboard
+    MKT_EVAL -.->|"Chỉ số kiểm định"| DASH
+    DASH --> OUTPUT["🖼️ *.png <br> Xuất biểu đồ tự động"]:::ui
 
-    %% Định dạng giao diện màu sắc cho các thành phần
+    %% Định nghĩa bảng màu trực quan (Styles)
     classDef core fill:#e1f5fe,stroke:#0288d1,stroke-width:1px;
     classDef side fill:#fff3e0,stroke:#f57c00,stroke-width:1px;
     classDef data fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
     classDef ui fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
     classDef error fill:#ffebee,stroke:#c62828,stroke-width:1px;
-    
-    class RET,EXT,MODEL,CHECK,METRICS core;
-    class CE_EVAL,MKT_EVAL side;
-    class DATA data;
-    class DASH,OUTPUT ui;
-    class LEAK error;
 ```
 
 Nhánh phụ: `counterevidence_evaluator.py` và `market_evaluator.py` chạy ở cuối pipeline để đánh giá độ bao phủ bằng chứng trái chiều và đối chiếu hiệu năng với dữ liệu thị trường.
