@@ -1,11 +1,14 @@
 import pandas as pd
 import logging
+import os
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
 class MarketEvaluator:
     def __init__(self, data_csv):
         # Đọc file kết quả dự báo
+        if not os.path.exists(data_csv):
+            raise FileNotFoundError(f"Không tìm thấy file đầu vào: {data_csv}")
         self.df = pd.read_csv(data_csv)
         self.df.columns = self.df.columns.str.strip()
 
@@ -13,10 +16,6 @@ class MarketEvaluator:
         """
         Đánh giá tính nhất quán giữa DỰ BÁO CỦA MÔ HÌNH (prediction) 
         với BIẾN ĐỘNG THỰC TẾ của thị trường (return & volume change).
-        
-        Trả về:
-        - directional_accuracy: Tỷ lệ dự báo đúng hướng thuần túy (0.0 - 1.0).
-        - weighted_consistency_index: Chỉ số nhất quán có tính thêm trọng số volume.
         """
         def compute_row_metrics(row):
             ret = row["price_5d_return"]
@@ -39,24 +38,23 @@ class MarketEvaluator:
             
             return pd.Series([is_directional_consistent, consistency_score])
 
-        # Áp dụng hàm tính toán cho từng dòng và tạo 2 cột mới
-        self.df[["is_directional_correct", "consistency_score"]] = self.df.apply(compute_row_metrics, axis=1)
+        # Áp dụng hàm tính toán cho từng dòng và tạo cột mới
+        self.df[["is_directional_correct", "consistency"]] = self.df.apply(compute_row_metrics, axis=1)
         
         # Tính toán giá trị trung bình tổng thể cho toàn tập dữ liệu
         directional_accuracy = self.df["is_directional_correct"].mean()
-        weighted_consistency_index = self.df["consistency_score"].mean()
+        weighted_consistency_index = self.df["consistency"].mean()
         
         return directional_accuracy, weighted_consistency_index
 
     def regime_analysis(self):
         """
         Phân tích trạng thái thị trường (Regime Analysis) dựa trên phân phối xu hướng.
-        Trả về bộ 3 giá trị phục vụ trực tiếp cho báo cáo và trực quan hóa.
         """
         avg_return = self.df["price_5d_return"].mean()
         avg_volume = self.df["volume_change"].mean()
         
-        # Thống kê phân phối dự báo để hiểu hành vi mô hình trong từng Regime
+        # Thống kê phân phối dự báo
         pred_counts = self.df["prediction"].value_counts(normalize=True)
         up_ratio = pred_counts.get("UP", 0)
         down_ratio = pred_counts.get("DOWN", 0)
@@ -72,8 +70,14 @@ class MarketEvaluator:
         logging.info(f"Thống kê Regime: Avg Return: {avg_return:.2f}%, Avg Vol Change: {avg_volume:.2f}%")
         logging.info(f"Tỷ lệ dự báo của mô hình: UP: {up_ratio:.1%}, DOWN: {down_ratio:.1%}")
         
-        
         return regime, avg_return, avg_volume
+
+    
+    def save_results(self, output_path="outputs/market_evaluator.csv"):
+        """Lưu toàn bộ DataFrame đã tính toán chỉ số xuống file để Dashboard đọc thật"""
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        self.df.to_csv(output_path, index=False)
+        logging.info(f"Đã xuất file kết quả thị trường tại: {output_path}")
 
 if __name__ == "__main__":
     # Khởi tạo bộ đánh giá với tệp đầu ra tương ứng
@@ -83,6 +87,8 @@ if __name__ == "__main__":
     dir_accuracy, consistency_index = evaluator.evaluate_consistency()
     market_regime, avg_ret, avg_vol = evaluator.regime_analysis()
     
+    evaluator.save_results("outputs/market_evaluator.csv")
+    
     print(f"\n=== MARKET CONSISTENCY & REGIME ANALYSIS ===")
     print(f"Directional Accuracy        : {dir_accuracy:.2%}")
     print(f"Weighted Consistency Index  : {consistency_index:.2f} (baseline = 1.00)") 
@@ -91,11 +97,11 @@ if __name__ == "__main__":
     print(f"Average Volume Change       : {avg_vol:.2f}%")
     print("-" * 65)
     print("Mẫu dữ liệu kiểm định chi tiết:")
+    
     print(evaluator.df[[
-        "news_text", 
         "prediction", 
         "price_5d_return", 
         "volume_change", 
         "is_directional_correct",
-        "consistency_score"
+        "consistency"
     ]].head())
