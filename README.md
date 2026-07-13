@@ -55,7 +55,7 @@ flowchart TD
     METRICS -->|"faithfulness_results.csv"| DASH["🖥️ dashboard.py <br> Streamlit UI"]:::ui
     
     %% Tổng hợp kết quả về Dashboard
-    MKT_EVAL -.->|"Chỉ số kiểm định"| DASH
+    MKT_EVAL -.->|"market_evaluator.csv"| DASH
 
     %% Định nghĩa bảng màu trực quan (Styles)
     classDef core fill:#e1f5fe,stroke:#0288d1,stroke-width:1px;
