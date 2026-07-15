@@ -2,32 +2,41 @@ news_text,prediction,confidence_before,sufficiency_pred,sufficiency_conf,counter
 Apple reports weak iPhone sales in China,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
 Apple launches new AI-powered Siri features,HOLD,0.0,HOLD,0.0,The company holds its annual investor meeting.,HOLD,0.0,0.0
 Apple maintains stable MacBook sales,HOLD,0.0,HOLD,0.0,The company holds its annual investor meeting.,HOLD,0.0,0.0
-Microsoft Azure revenue grows significantly,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
-Microsoft faces antitrust investigation in Europe,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Microsoft beats earnings and announces a strategic partnership and share buyback,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Microsoft faces an antitrust investigation despite record revenue,DOWN,0.33,DOWN,0.33,The company holds its annual investor meeting.,HOLD,0.0,0.33
 Microsoft stock remains stable after investor meeting,HOLD,0.0,HOLD,0.0,The company holds its annual investor meeting.,HOLD,0.0,0.0
-Google Cloud reports strong quarterly growth,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
-Google fined for advertising practices,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Google posts record revenue and wins a new contract but faces a fine,UP,0.2,UP,0.2,The company holds its annual investor meeting.,HOLD,0.0,0.2
+Google hit with an SEC investigation and antitrust lawsuit after a downgrade,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
 Google search market share remains unchanged,HOLD,0.0,HOLD,0.0,The company holds its annual investor meeting.,HOLD,0.0,0.0
-Amazon Prime Day sales expected to increase,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
-Amazon warehouse workers begin strike,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Amazon beats earnings on strong sales with raised guidance and a buyback,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Amazon faces a production delay amid a strike despite profit,DOWN,0.5,DOWN,0.5,The company holds its annual investor meeting.,HOLD,0.0,0.5
 Amazon logistics operations remain stable,HOLD,0.0,HOLD,0.0,The company holds its annual investor meeting.,HOLD,0.0,0.0
-Tesla vehicle deliveries exceed expectations,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
-Tesla recalls thousands of vehicles due to defect,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Tesla deliveries exceed targets with record revenue despite a recall,UP,0.33,UP,0.33,The company holds its annual investor meeting.,HOLD,0.0,0.33
+Tesla recalls vehicles amid a lawsuit and SEC investigation,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
 Tesla production remains unchanged,HOLD,0.0,HOLD,0.0,The company holds its annual investor meeting.,HOLD,0.0,0.0
-NVIDIA demand for AI chips continues to surge,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
-NVIDIA faces supply chain disruptions,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+NVIDIA beats earnings as demand surges and it wins a new contract,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+NVIDIA faces supply disruptions and a production delay despite strong demand,DOWN,0.5,DOWN,0.5,The company holds its annual investor meeting.,HOLD,0.0,0.5
 NVIDIA stock trades sideways,HOLD,0.0,HOLD,0.0,The company holds its annual investor meeting.,HOLD,0.0,0.0
-Meta advertising revenue beats estimates,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
-Meta faces privacy lawsuit,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Meta beats earnings raised guidance and expands its buyback,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Meta faces a privacy lawsuit and SEC investigation despite profit,DOWN,0.5,DOWN,0.5,The company holds its annual investor meeting.,HOLD,0.0,0.5
 Meta user growth remains stable,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
-Netflix subscriber growth exceeds forecasts,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
-Netflix content spending increases sharply,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Netflix subscriber growth beats forecasts and raised guidance despite a strike,UP,0.5,UP,0.5,The company holds its annual investor meeting.,HOLD,0.0,0.5
+Netflix faces an earnings miss downgrade and rising layoffs,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
 Netflix subscriber numbers remain steady,HOLD,0.0,HOLD,0.0,The company holds its annual investor meeting.,HOLD,0.0,0.0
-Intel wins large government chip contract,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
-Intel reports manufacturing delays,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Intel wins a new contract and announces expansion with a dividend increase,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Intel reports a guidance cut and production delay amid layoffs despite profit,DOWN,0.5,DOWN,0.5,The company holds its annual investor meeting.,HOLD,0.0,0.5
 Intel quarterly guidance remains unchanged,HOLD,0.0,HOLD,0.0,The company holds its annual investor meeting.,HOLD,0.0,0.0
 Apple reports profit growth but weak iPhone sales in China,UP,0.33,UP,0.33,The company holds its annual investor meeting.,HOLD,0.0,0.33
 Microsoft Azure revenue grows significantly despite lawsuit,HOLD,0.0,HOLD,0.0,The company holds its annual investor meeting.,HOLD,0.0,0.0
 Google Cloud reports strong growth but faces decline in ad revenue,HOLD,0.0,HOLD,0.0,The company holds its annual investor meeting.,HOLD,0.0,0.0
 Amazon Prime Day sales increase but warehouse workers begin strike,HOLD,0.0,HOLD,0.0,The company holds its annual investor meeting.,HOLD,0.0,0.0
 NVIDIA demand for AI chips surge despite supply chain weak points,HOLD,0.0,HOLD,0.0,The company holds its annual investor meeting.,HOLD,0.0,0.0
+"Apple beats earnings, raised guidance and record revenue despite a lawsuit and layoffs",UP,0.2,UP,0.2,The company holds its annual investor meeting.,HOLD,0.0,0.2
+Tesla recalls vehicles and faces a lawsuit despite beating earnings and a share buyback,DOWN,0.2,DOWN,0.2,The company holds its annual investor meeting.,HOLD,0.0,0.2
+NVIDIA wins a new contract and posts record revenue but faces an antitrust investigation,UP,0.2,UP,0.2,The company holds its annual investor meeting.,HOLD,0.0,0.2
+Apple beats earnings and record revenue,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Apple raised guidance and announces a buyback,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Apple faces a lawsuit and an SEC investigation,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Tesla recalls vehicles and faces a lawsuit,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Tesla faces a production delay and downgrade,DOWN,1.0,DOWN,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
+Tesla beats earnings and posts record revenue,UP,1.0,UP,1.0,The company holds its annual investor meeting.,HOLD,0.0,1.0
