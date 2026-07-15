@@ -2,20 +2,14 @@ from pathlib import Path
 import logging
 import pandas as pd
 
+from signals import extract_signals
+
 logging.basicConfig(
     level=logging.INFO,
     format="[%(levelname)s] %(message)s"
 )
 
 class EvidenceExtractor:
-    
-    POSITIVE_KEYWORDS = [
-        "profit", "grow", "beat", "increase", "record", "strong", "surge", "gain", "expand", "upgrade", "exceed", "win"
-    ]
-    NEGATIVE_KEYWORDS = [
-        "loss", "weak", "decline", "drop", "miss", "lawsuit", "bankruptcy", 
-        "fall", "downgrade", "decrease", "strike", "delay", "disrupt", "fine", "investigat", "recall", "face"
-    ]
 
     def __init__(self, csv_file: str):
         csv_path = Path(csv_file)
@@ -28,10 +22,8 @@ class EvidenceExtractor:
         logging.info(f"Loaded {len(self.df)} news articles.")
 
     def _get_evidence_lists(self, text_lower):
-        """Trích xuất từ khóa, loại bỏ trùng lặp ngữ nghĩa."""
-        pro = [w for w in self.POSITIVE_KEYWORDS if w in text_lower]
-        con = [w for w in self.NEGATIVE_KEYWORDS if w in text_lower]
-        return list(set(pro)), list(set(con))
+        """Trích xuất cụm tín hiệu (pro/con) từ từ điển dùng chung signals.py."""
+        return extract_signals(text_lower)
 
     def extract(self, text: str):
         text_lower = str(text).lower()

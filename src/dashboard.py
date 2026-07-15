@@ -21,6 +21,7 @@ PRED_PATH = "outputs/prediction_results.csv"
 FAITH_PATH = "outputs/faithfulness_results.csv"
 COVERAGE_PATH = "outputs/counterevidence_coverage.csv"
 MARKET_PATH = "outputs/market_evaluator.csv"  # 🛠️ CẬP NHẬT: Đường dẫn khớp với MarketEvaluator
+INVALID_PATH = "outputs/invalid_future_news.csv"  # tin bị loại do rò rỉ thời gian (retriever ghi ra)
 
 PRED_COLS = [
     "ticker", "forecast_time", "news_time", "prediction", "confidence",
@@ -31,13 +32,13 @@ FAITH_COLS = [
     "confidence_original", "confidence_after_removal",
 ]
 COVERAGE_COLS = ["ticker", "pro_evidence", "counter_evidence", "coverage"]
-# 🛠️ CẬP NHẬT: Thay đổi five_day_return thành price_5d_return để khớp cấu trúc Pandas
+# CẬP NHẬT: Thay đổi five_day_return thành price_5d_return để khớp cấu trúc Pandas
 MARKET_COLS = ["ticker", "price_5d_return", "volume_change", "consistency", "market_regime"]
 
 CLASSES = ["UP", "DOWN", "HOLD"]
 
 # --------------------------------------------------------------------------- #
-# 🛠️ GIAI ĐOẠN 1: LOAD VÀ CHUẨN HÓA DỮ LIỆU TỪ PIPELINE
+#  GIAI ĐOẠN 1: LOAD VÀ CHUẨN HÓA DỮ LIỆU TỪ PIPELINE
 # --------------------------------------------------------------------------- #
 def load_predictions(path: str = PRED_PATH) -> pd.DataFrame:
     if not os.path.exists(path): raise FileNotFoundError(path)
@@ -89,7 +90,6 @@ def _normalize_coverage_schema(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def load_market(path: str = MARKET_PATH, pred_df: pd.DataFrame = None) -> pd.DataFrame:
-    # 🛠️ CẬP NHẬT: Tạo dữ liệu mặc định chuẩn hóa để tránh lỗi hiển thị khi chưa có file thật
     if not os.path.exists(path):
         tickers = pred_df["ticker"].unique() if pred_df is not None else ["AAPL", "TSLA", "NVDA"]
         return pd.DataFrame({
@@ -106,7 +106,7 @@ def load_market(path: str = MARKET_PATH, pred_df: pd.DataFrame = None) -> pd.Dat
     return df
 
 def _normalize_market_schema(df: pd.DataFrame) -> pd.DataFrame:
-    """🛠️ CẬP NHẬT: Tầng xử lý schema thích ứng động cho kết quả Evaluator thị trường"""
+    """CẬP NHẬT: Tầng xử lý schema thích ứng động cho kết quả Evaluator thị trường"""
     df = df.copy()
     
     # Ép kiểu/Đổi tên cột nếu module trước ghi tên khác
@@ -125,13 +125,27 @@ def _normalize_market_schema(df: pd.DataFrame) -> pd.DataFrame:
             
     return df
 
+def count_leakage_removed(path: str = INVALID_PATH) -> int:
+    """Số tin bị loại vì rò rỉ thời gian (news_time > forecast_time).
+
+    Đọc từ outputs/invalid_future_news.csv do retriever ghi ra — vì
+    prediction_results.csv đã lọc sạch tin leakage nên không đếm được ở đó.
+    """
+    if not os.path.exists(path):
+        return 0
+    try:
+        return len(pd.read_csv(path))
+    except Exception:
+        return 0
+
+
 def _check_cols(df: pd.DataFrame, required: list[str], path: str) -> None:
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise ValueError(f"{path} thiếu cột: {missing}. Schema kỳ vọng: {required}")
 
 # --------------------------------------------------------------------------- #
-# 📊 GIAI ĐOẠN 2: THÀNH PHẦN ĐỒ THỊ TRỰC QUAN HÓA (MATPLOTLIB EXPORT)
+#  GIAI ĐOẠN 2: THÀNH PHẦN ĐỒ THỊ TRỰC QUAN HÓA (MATPLOTLIB EXPORT)
 # --------------------------------------------------------------------------- #
 def plot_prediction_distribution(pred: pd.DataFrame, outdir: str) -> str:
     samples = pred.drop_duplicates(subset=["ticker", "forecast_time"])
@@ -152,21 +166,46 @@ def plot_prediction_distribution(pred: pd.DataFrame, outdir: str) -> str:
 
     return _save(fig, outdir, "prediction_distribution.png")
 
-def plot_confidence_drop(faith: pd.DataFrame, outdir: str) -> str:
-    df = faith.copy()
-    labels = df["ticker"].astype(str).tolist()
-    x = range(len(df))
-    width = 0.38
+def plot_confidence_drop(pred: pd.DataFrame, outdir: str) -> str:
+    # Tính confidence trước/sau khi bỏ bằng chứng ẢNH HƯỞNG NHẤT (top-1) cho từng
+    # (ticker, forecast_time) rồi gộp trung bình theo mã — để KHỚP với thí nghiệm
+    # tương tác trên dashboard: mã nhiều bằng chứng cùng hướng chỉ drop MỘT PHẦN.
+    df = pred.copy()
+    df["forecast_time"] = pd.to_datetime(df["forecast_time"])
+    df["news_time"] = pd.to_datetime(df["news_time"])
 
-    fig, ax = plt.subplots(figsize=(max(6, len(df) * 1.1), 4))
-    ax.bar([i - width / 2 for i in x], df["confidence_original"], width, label="Gốc", color="#1565c0")
-    ax.bar([i + width / 2 for i in x], df["confidence_after_removal"], width, label="Bỏ cited evidence", color="#ef6c00")
+    recs = []
+    for (tk, _ft), grp in df.groupby(["ticker", "forecast_time"]):
+        vn = detect_leakage(grp.copy())
+        vn = vn[~vn["is_leakage"]].copy()
+        if vn.empty:
+            continue
+        fc = compute_forecast(vn)
+        after, _, _ = faithfulness_probe(vn, fc["prediction"], fc["confidence"])
+        recs.append({"ticker": tk, "before": fc["confidence"], "after": after})
+
+    agg = pd.DataFrame(recs, columns=["ticker", "before", "after"])
+    if not agg.empty:
+        agg = agg.groupby("ticker", as_index=False)[["before", "after"]].mean()
+
+    labels = agg["ticker"].astype(str).tolist()
+    x = range(len(agg))
+    width = 0.4
+
+    fig, ax = plt.subplots(figsize=(max(9, len(agg) * 1.0), 5.5))
+    b1 = ax.bar([i - width / 2 for i in x], agg["before"], width,
+                label="Confidence gốc", color="#1565c0")
+    b2 = ax.bar([i + width / 2 for i in x], agg["after"], width,
+                label="Sau khi bỏ bằng chứng ảnh hưởng nhất", color="#ef6c00")
+    ax.bar_label(b1, fmt="%.2f", fontsize=9, padding=2)
+    ax.bar_label(b2, fmt="%.2f", fontsize=9, padding=2)
     ax.set_xticks(list(x))
-    ax.set_xticklabels(labels, rotation=30, ha="right")
-    ax.set_ylim(0, 1)
-    ax.set_ylabel("Confidence")
-    ax.set_title("Confidence Drop khi bỏ dữ liệu trích xuất")
-    ax.legend()
+    ax.set_xticklabels(labels, rotation=0, fontsize=11)
+    ax.set_ylim(0, 1.12)
+    ax.set_ylabel("Confidence", fontsize=11)
+    ax.set_title("Confidence Drop khi bỏ bằng chứng ảnh hưởng nhất (trung bình mỗi mã)",
+                 fontsize=13, fontweight="bold")
+    ax.legend(fontsize=11)
     return _save(fig, outdir, "confidence_drop.png")
 
 def detect_leakage(pred: pd.DataFrame) -> pd.DataFrame:
@@ -229,10 +268,13 @@ def _save(fig, outdir: str, name: str) -> str:
     return path
 
 # --------------------------------------------------------------------------- #
-# 🧮 GIAI ĐOẠN 3: MÔ PHỎNG DỮ LIỆU ĐÁNH GIÁ THỰC TẾ
+# GIAI ĐOẠN 3: MÔ PHỎNG DỮ LIỆU ĐÁNH GIÁ THỰC TẾ
 # --------------------------------------------------------------------------- #
 def calculate_classification_metrics(pred: pd.DataFrame) -> dict:
-    samples = pred.drop_duplicates(subset=["ticker", "forecast_time"])
+    # Tính trên TOÀN BỘ tin (mỗi tin là 1 mẫu phân lớp) để khớp accuracy của model.
+    # Trước đây drop_duplicates theo (ticker, forecast_time) chỉ lấy 1 tin/nhóm nên
+    # vô tình toàn tin đúng -> mọi chỉ số = 1.00 (sai lệch).
+    samples = pred
     if samples.empty or "label" not in samples.columns:
         return {"accuracy": 0.0, "precision": 0.0, "recall": 0.0, "f1": 0.0}
     
@@ -243,7 +285,7 @@ def calculate_classification_metrics(pred: pd.DataFrame) -> dict:
     if not y_true:
         return {"accuracy": 0.0, "precision": 0.0, "recall": 0.0, "f1": 0.0}
     
-    # 📊 Tính toán các chỉ số thực tế bằng scikit-learn
+    # Tính toán các chỉ số thực tế bằng scikit-learn
     accuracy = accuracy_score(y_true, y_pred)
     
     # Sử dụng average="macro" vì đây là bài toán phân loại đa lớp (UP, DOWN, HOLD)
@@ -274,6 +316,23 @@ def confidence_for(forecast: dict, label: str) -> float:
     if forecast["total"] <= 0: return 0.0
     return round(forecast["weights"].get(label, 0.0) / forecast["total"], 2)
 
+def faithfulness_probe(valid_news: pd.DataFrame, prediction: str, conf_before: float) -> tuple:
+    """Bỏ ĐÚNG MỘT bằng chứng ảnh hưởng nhất (top-1) rồi dự báo lại -> drop MỘT PHẦN.
+
+    Bỏ toàn bộ cited sẽ khiến confidence của nhãn gốc luôn về 0 (drop tối đa, không
+    phân biệt được). Bỏ đúng một tin mạnh nhất cho phép đo phần confidence CÒN GIỮ
+    được nhờ các bằng chứng còn lại (khớp ví dụ tài liệu 0.80 -> 0.55).
+
+    Trả về (conf_after, conf_drop, removed_index).
+    """
+    cited = valid_news[valid_news["prediction"] == prediction]
+    if cited.empty:
+        return conf_before, 0.0, None
+    removed_index = cited["confidence"].astype(float).idxmax()
+    remaining = valid_news.drop(index=removed_index)
+    conf_after = confidence_for(compute_forecast(remaining), prediction)
+    return conf_after, round(conf_before - conf_after, 2), removed_index
+
 def _demo_frames() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Khung sinh dữ liệu Placeholder mở rộng đồng bộ toàn bộ yêu cầu dự án"""
     pred = pd.DataFrame([
@@ -295,7 +354,7 @@ def _demo_frames() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFra
         ["NVDA", "AI demand boom; new chip lineup", "supply chain delays", 0.80],
     ], columns=COVERAGE_COLS)
     
-    # 🛠️ CẬP NHẬT: Định hình lại cấu trúc cột khớp chính xác với MARKET_COLS mới tránh crash cơ chế Demo
+    #  CẬP NHẬT: Định hình lại cấu trúc cột khớp chính xác với MARKET_COLS mới tránh crash cơ chế Demo
     market = pd.DataFrame([
         ["AAPL", -3.1, 15.0, 0.92, "Bearish (Thị trường giá xuống)"],
         ["TSLA", -5.4, 22.0, 0.88, "Bearish (Thị trường giá xuống)"],
@@ -307,24 +366,39 @@ def _demo_frames() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFra
 def build_all(pred: pd.DataFrame, faith: pd.DataFrame, cov: pd.DataFrame, mkt: pd.DataFrame, outdir: str) -> list[str]:
     return [
         plot_prediction_distribution(pred, outdir),
-        plot_confidence_drop(faith, outdir),
+        plot_confidence_drop(pred, outdir),
         plot_temporal_leakage_warning(pred, outdir),
         plot_faithfulness_radar(faith, cov, mkt, outdir),
     ]
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Faithfulness visualization dashboard CLI")
-    ap.add_argument("--demo", action="store_true")
+    ap.add_argument("--demo", action="store_true",
+                    help="Dùng dữ liệu placeholder thay vì outputs/*.csv (dự phòng)")
     ap.add_argument("--outdir", default="figures")
     args = ap.parse_args()
-    
-    pred, faith, cov, mkt = _demo_frames()
+
+    if args.demo:
+        pred, faith, cov, mkt = _demo_frames()
+    else:
+        # Mặc định: vẽ biểu đồ từ dữ liệu thật outputs/*.csv
+        try:
+            pred = load_predictions()
+            faith = load_faithfulness()
+            cov = load_coverage()
+            mkt = load_market(pred_df=pred)
+        except Exception as e:
+            print(f"Lỗi đọc outputs/*.csv: {e}")
+            print("Hãy chạy `python src/run_pipeline.py` trước, "
+                  "hoặc dùng `--demo` để vẽ với dữ liệu placeholder.")
+            return
+
     paths = build_all(pred, faith, cov, mkt, args.outdir)
     print("Đã xuất biểu đồ ra thư mục:", args.outdir)
     for p in paths: print("  -", p)
 
 # --------------------------------------------------------------------------- #
-# 🖥️ GIAI ĐOẠN 4: INTERACTIVE UI (STREAMLIT ENGINE)
+# GIAI ĐOẠN 4: INTERACTIVE UI (STREAMLIT ENGINE)
 # --------------------------------------------------------------------------- #
 def _in_streamlit() -> bool:
     try:
@@ -375,16 +449,14 @@ if _in_streamlit():
                 '</div>', unsafe_allow_html=True)
     
     st.sidebar.header("⚙️ Control Panel")
-    mode = st.sidebar.radio("Nguồn dữ liệu đầu vào", ["Chạy Demo (Placeholder Data)", "Đọc dữ liệu outputs/*.csv thật"])
-    
-    if "Demo" in mode:
-        pred, faith, cov, mkt = _demo_frames()
-    else:
-        try:
-            pred, faith, cov, mkt = load_predictions(), load_faithfulness(), load_coverage(), load_market()
-        except Exception as e:
-            st.sidebar.error(f"Lỗi đọc file: {e}. Vui lòng chuyển sang chế độ Demo.")
-            st.stop()
+
+    # Luôn dùng dữ liệu thật từ outputs/*.csv (đã bỏ chế độ Demo/placeholder)
+    try:
+        pred, faith, cov, mkt = load_predictions(), load_faithfulness(), load_coverage(), load_market()
+    except Exception as e:
+        st.sidebar.error(f"Lỗi đọc file outputs/*.csv: {e}. "
+                         "Hãy chạy `python src/run_pipeline.py` để sinh dữ liệu trước.")
+        st.stop()
 
     pred["forecast_time"] = pd.to_datetime(pred["forecast_time"])
     pred["news_time"] = pd.to_datetime(pred["news_time"])
@@ -417,8 +489,9 @@ if _in_streamlit():
     t_mkt = mkt[mkt["ticker"] == ticker].iloc[0] if not mkt[mkt["ticker"] == ticker].empty else None
 
     metrics_calc = calculate_classification_metrics(pred)
-    n_total_news = len(pred)
-    n_leakage = detect_leakage(pred)["is_leakage"].sum()
+    # Tin leakage đã bị retriever lọc khỏi prediction_results -> đếm từ file invalid.
+    n_leakage = count_leakage_removed()
+    n_total_news = len(pred) + n_leakage   # tổng tin = hợp lệ + rò rỉ đã loại
     avg_coverage = cov["coverage"].mean() if not cov.empty else 0.0
     avg_faith = faith["confidence_drop"].mean() if not faith.empty else 0.0
 
@@ -433,7 +506,7 @@ if _in_streamlit():
     col_left, col_right = st.columns([7, 5])
     
     with col_left:
-        st.subheader(f"📋 Tin tức Hợp lệ — {ticker} ({date_sel})")
+        st.subheader(f"Tin tức Hợp lệ — {ticker} ({date_sel})")
         if not leaked_news.empty:
             st.error(f"⚠️ Phát hiện {len(leaked_news)} tin lỗi Temporal Leakage (Đã bị hệ thống từ chối đưa vào mô hình).")
             
@@ -443,7 +516,7 @@ if _in_streamlit():
         ].rename(columns={"news_time": "Thời điểm", text_col: "Nội dung tin văn bản văn bản gốc", "polarity": "Sắc thái"})
         st.dataframe(news_view, use_container_width=True, hide_index=True)
         
-        st.subheader("🔍 Chi tiết Bằng chứng (Evidence Mapping)")
+        st.subheader("Evidence Mapping")
         forecast = compute_forecast(valid_news)
         valid_news["cited"] = valid_news["prediction"] == forecast["prediction"]
         
@@ -455,19 +528,16 @@ if _in_streamlit():
 
         st.subheader("📊 Phân tích Counterevidence Coverage")
         if t_cov is not None:
-            c_pro, c_anti, c_pct = st.columns(3)
+            c_pro, c_anti = st.columns(2)
             with c_pro:
-                st.info("**👍 Pro Evidence (Bằng chứng ủng hộ)**\n\n" + "\n".join([f"- {x.strip()}" for x in str(t_cov['pro_evidence']).split(';')]))
+                st.info(" Pro Evidence \n\n" + "\n".join([f"- {x.strip()}" for x in str(t_cov['pro_evidence']).split(';')]))
             with c_anti:
-                st.warning("**👎 Counter Evidence (Bằng chứng phản bác)**\n\n" + "\n".join([f"- {x.strip()}" for x in str(t_cov['counter_evidence']).split(';')]))
-            with c_pct:
-                st.metric("Tỷ lệ bao phủ (Coverage)", f"{t_cov['coverage']:.1%}", 
-                          help="Tỷ lệ bao phủ các khía cạnh thông tin trái chiều của mô hình nhằm tránh thiên kiến xác nhận.")
+                st.warning(" Counter Evidence \n\n" + "\n".join([f"- {x.strip()}" for x in str(t_cov['counter_evidence']).split(';')]))
         else:
             st.info("Không tìm thấy dữ liệu Counterevidence Coverage cho Ticker này.")
 
     with col_right:
-        st.subheader("🧠 Khối giải thích mô hình (Explainability)")
+        st.subheader("🧠 Khối giải thích mô hình ")
         if not valid_news.empty:
             st.markdown(f"""
             <div class="card">
@@ -483,49 +553,50 @@ if _in_streamlit():
             </div>
             """, unsafe_allow_html=True)
             
-        st.subheader("📈 Đánh giá Market Consistency")
+        st.subheader(" Market Consistency")
         if t_mkt is not None:
             m1, m2 = st.columns(2)
             # 🛠️ CẬP NHẬT: Trỏ đúng từ khóa 'price_5d_return' đồng bộ với schema mới
-            m1.metric("Biến động giá thực tế", f"{t_mkt['price_5d_return']}%", 
+            m1.metric("Biến động giá thực tế", f"{t_mkt['price_5d_return']}%",
                       delta="UP" if t_mkt['price_5d_return'] > 0 else "DOWN")
             m2.metric("Thay đổi khối lượng giao dịch", f"+{t_mkt['volume_change']}%")
-            
-            m3, m4 = st.columns(2)
-            with m3:
-                # Xác định màu sắc động theo trạng thái thị trường giống như st.metric
-                regime_text = str(t_mkt['market_regime'])
-                regime_color = "#2ed573" if "Bullish" in regime_text else "#ff4757" if "Bearish" in regime_text else "#ffa502"
-    
-                # Hiển thị Label và Value bằng HTML để chống truncate (cắt chữ)
-                st.markdown("<p style='font-size: 0.85rem; color: #a4b0be; margin-bottom: 0px;'>Trạng thái thị trường (Market Regime)</p>", unsafe_allow_html=True)
-                st.markdown(f"<p style='font-size: 1.55rem; font-weight: 600; color: {regime_color}; margin-top: -4px; line-height: 1.2;'>{regime_text}</p>", unsafe_allow_html=True)
-
-                m4.metric("Mức độ nhất quán dòng tiền", f"{t_mkt['consistency']:.1%}")
         else:
             st.info("Chưa cấu hình dữ liệu thông số kiểm định thực tế thị trường.")
 
-        st.subheader("🔬 Thí nghiệm Phản thực (Faithfulness Testing)")
+        st.subheader("Faithfulness Testing")
         remove = st.checkbox("Thực hiện triệt tiêu Bằng chứng Trích dẫn (Remove Cited)")
         
-        remaining = valid_news[~valid_news["cited"]]
-        forecast_after = compute_forecast(remaining)
-        conf_after = confidence_for(forecast_after, forecast["prediction"])
-        conf_drop = round(forecast["confidence"] - conf_after, 2)
-        
+        # Bỏ MỘT bằng chứng ảnh hưởng nhất (top-1) -> confidence drop MỘT PHẦN
+        conf_after, conf_drop, _removed_idx = faithfulness_probe(
+            valid_news, forecast["prediction"], forecast["confidence"])
+        removed_ev = (str(valid_news.loc[_removed_idx, "evidence_text"])
+                      if _removed_idx is not None else "—")
+        if remove:
+            st.caption(f"🗑️ Đã bỏ bằng chứng ảnh hưởng nhất: _{removed_ev}_")
+
         r1, r2, r3 = st.columns(3)
         r1.metric("Độ tin cậy gốc", f"{forecast['confidence']:.0%}")
         r2.metric("Sau can thiệp", f"{conf_after:.0%}", delta=f"-{conf_drop:.0%}", delta_color="inverse")
         r3.metric("Mức sụt giảm (Drop)", f"{conf_drop:.2f}")
         
         if conf_drop >= threshold:
-            st.success("🟢 **FAITHFUL VERIFIED**: Mô hình sụt giảm niềm tin nghiêm trọng khi mất bằng chứng cốt lõi. Bằng chứng có giá trị thực chất.")
+            if conf_after <= 0.01:
+                # Bỏ bằng chứng -> confidence sụp hoàn toàn: bằng chứng có tính quyết định
+                st.success("🟢 **FAITHFUL VERIFIED**: Bỏ bằng chứng ảnh hưởng nhất khiến mô hình "
+                           "mất hoàn toàn niềm tin vào dự báo — bằng chứng có tính **quyết định**.")
+            else:
+                # Drop MỘT PHẦN: dự báo vẫn dựa trên bằng chứng, và còn bằng chứng khác bổ trợ
+                st.success(f"🟢 **FAITHFUL VERIFIED**: Bỏ bằng chứng mạnh nhất, độ tin cậy giảm "
+                           f"**một phần** (còn {conf_after:.0%}, sụt {conf_drop:.2f}) — dự báo dựa "
+                           f"trên bằng chứng thật và **được nhiều bằng chứng cùng cố**, không phụ "
+                           f"thuộc một điểm duy nhất.")
         else:
-            st.error("🔴 **UNFAITHFUL WARNING**: Mô hình vẫn tự tin ra quyết định dù bằng chứng nền tảng bị xóa bỏ. Có dấu hiệu ảo giác gán nhãn.")
+            st.error("🔴 **UNFAITHFUL WARNING**: Bỏ bằng chứng ảnh hưởng nhất nhưng độ tin cậy hầu "
+                     "như không đổi — bằng chứng có thể không thực sự dẫn tới dự báo (dấu hiệu rationale gán thêm).")
 
     st.divider()
     
-    st.subheader("📊 Kết quả kiểm thử chất lượng phần mềm")
+    st.subheader(" Kết quả kiểm thử chất lượng phần mềm")
     qa_col1, qa_col2 = st.columns([5, 7])
     
     with qa_col1:
@@ -544,37 +615,27 @@ if _in_streamlit():
         p_col3.metric("F1-Score (Điểm cân bằng)", f"{metrics_calc['f1']:.2f}")
 
     st.divider()
-    with st.expander("📂 Quản lý thư mục tài nguyên Hệ thống xuất bản đầu ra"):
+    with st.expander("📂 CSV Outputs"):
         out_files = [PRED_PATH, FAITH_PATH, COVERAGE_PATH, MARKET_PATH]
         f_cols = st.columns(4)
         for idx, path_file in enumerate(out_files):
             with f_cols[idx]:
                 st.markdown(f"📄 **{os.path.basename(path_file)}**")
-                if "Demo" in mode:
-                    st.caption("Đang chạy chế độ Demo (Tải file giả lập)")
-                    st.download_button(label=f"Download {os.path.basename(path_file)}", data="placeholder data", file_name=os.path.basename(path_file), key=f"dl_{idx}")
+                if os.path.exists(path_file):
+                    with open(path_file, "rb") as file_data:
+                        st.download_button(label=f"Tải file {os.path.basename(path_file)}", data=file_data, file_name=os.path.basename(path_file), mime="text/csv", key=f"dl_real_{idx}")
                 else:
-                    if os.path.exists(path_file):
-                        with open(path_file, "rb") as file_data:
-                            st.download_button(label=f"Tải file {os.path.basename(path_file)}", data=file_data, file_name=os.path.basename(path_file), mime="text/csv", key=f"dl_real_{idx}")
-                    else:
-                        st.caption("File chưa được tạo từ Pipeline hệ thống.")
+                    st.caption("File chưa được tạo từ Pipeline hệ thống.")
 
-    with st.expander("🖼️ Phụ lục đồ thị xuất bản tự động phục vụ minh chứng đồ án"):
+    with st.expander("🖼️ Đồ thị phục vụ minh chứng đồ án"):
         import tempfile
         with tempfile.TemporaryDirectory() as tmpdir:
             p1 = plot_prediction_distribution(pred, tmpdir)
-            p2 = plot_confidence_drop(faith, tmpdir)
-            p3 = plot_temporal_leakage_warning(pred, tmpdir)
-            p4 = plot_faithfulness_radar(faith, cov, mkt, tmpdir)
-            
-            g1, g2 = st.columns(2)
-            g1.image(p1, caption="Tích hợp Phân phối Dự báo (Bar & Pie Charts)", use_container_width=True)
-            g2.image(p2, caption="Độ sụt giảm niềm tin (Confidence Drop)", use_container_width=True)
-            
-            g3, g4 = st.columns(2)
-            g3.image(p3, caption="Cảnh báo lỗi Thời gian (Temporal Leakage Warning)", use_container_width=True)
-            g4.image(p4, caption="Biểu đồ Radar Thuộc tính Hệ thống 5 chiều diện rộng", use_container_width=True)
+            p2 = plot_confidence_drop(pred, tmpdir)
+
+            st.image(p1, caption="Tích hợp Phân phối Dự báo (Bar & Pie Charts)", use_container_width=True)
+            # Confidence Drop hiển thị full-width cho to & rõ
+            st.image(p2, caption="Độ sụt giảm niềm tin — Confidence Drop (trung bình mỗi mã)", use_container_width=True)
 
     st.markdown("<hr><center style='color:#666; font-size:0.8rem;'>Báo cáo nghiệm thu cấu phần Đồ án Cuối kỳ - Nhóm 1 - Bản quyền 2026</center>", unsafe_allow_html=True)
 

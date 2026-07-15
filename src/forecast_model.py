@@ -8,6 +8,8 @@ from sklearn.metrics import (
     classification_report
 )
 
+from signals import POSITIVE_SET, NEGATIVE_SET
+
 logging.basicConfig(
     level=logging.INFO,
     format="[%(levelname)s] %(message)s"
@@ -47,19 +49,17 @@ class ForecastModel:
         evidence_str = str(row.get("evidence_text", "")).strip()
         sentiment = str(row.get("sentiment", "")).lower()
 
-        pos_keywords = {"profit", "growth", "grow", "strong", "increase", "surge", "beat", "exceed", "win"}
-        neg_keywords = {"weak", "lawsuit", "fine", "strike", "recall", "disruption", "disrupt", "delay", "decline", "investigat", "face"}
-
         pro_ev_list = []
         counter_ev_list = []
 
-        # 1. Phân loại từ khóa vào nhóm ủng hộ (pro) hoặc chống lại (counter)
+        # 1. Phân loại cụm tín hiệu (đã trích ở evidence_text) vào nhóm ủng hộ /
+        #    chống lại, dùng chung từ điển signals.py để không lệch với extractor.
         if evidence_str and evidence_str.lower() != "nan" and evidence_str != "":
             keywords = [k.strip().lower() for k in evidence_str.split(",")]
             for kw in keywords:
-                if kw in pos_keywords:
+                if kw in POSITIVE_SET:
                     pro_ev_list.append(kw)
-                elif kw in neg_keywords:
+                elif kw in NEGATIVE_SET:
                     counter_ev_list.append(kw)
         
         # 2. Lấy số lượng đếm chính xác dựa trên danh sách từ khóa đã phân loại
